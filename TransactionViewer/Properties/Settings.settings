@@ -6,7 +6,7 @@
       <Value Profile="(Default)">C:\Users\Dominic\NSF</Value>
     </Setting>
     <Setting Name="ArchiveFolder" Type="System.String" Scope="User">
-      <Value Profile="(Default)">\\RS-HUB2\hub-P-CC\Programmes\TransactionViewer 0.1.22\NsfCsvArchive\NSF</Value>
+      <Value Profile="(Default)">"\\RS-HUB\hub-P-CC\Archive NSF (CSV)"</Value>
     </Setting>
   </Settings>
 </SettingsFile>

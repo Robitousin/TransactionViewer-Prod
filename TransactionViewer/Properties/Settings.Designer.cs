@@ -37,7 +37,7 @@ namespace TransactionViewer.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("\"\\\\RS-HUB\\hub-P-CC\\Archive NSF (CSV)\"")]
+        [global::System.Configuration.DefaultSettingValueAttribute("\\\\RS-HUB\\hub-P-CC\\Archive NSF (CSV)")]
         public string ArchiveFolder {
             get {
                 return ((string)(this["ArchiveFolder"]));

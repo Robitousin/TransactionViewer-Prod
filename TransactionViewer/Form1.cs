@@ -4,9 +4,12 @@ using System.Data;
 using System.Linq;
 using System.Windows.Forms;
 using System.Drawing.Printing;
+using System.Diagnostics;    // NEW: pour ouvrir l’Explorer
+using System.IO;             // NEW: pour Path.GetDirectoryName
 using TransactionViewer.DataAccess;
 using TransactionViewer.Models;
 using TransactionViewer.Printing;
+using TransactionViewer.Services; // NEW: CsvExporter + ArchiveService
 
 namespace TransactionViewer
 {
@@ -59,8 +62,13 @@ namespace TransactionViewer
         private void btnImpressionEnregistrement_Click(object sender, EventArgs e)
         {
             var currentTab = tabControl1.SelectedTab;
+
             if (currentTab == tabPrelevements)
             {
+                // Valider la dernière case cochée avant lecture
+                dgvPrelevements.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                dgvPrelevements.EndEdit();
+
                 var selectedTx = GetCheckedTransactions(dgvPrelevements, "chkSelectPrelev");
                 if (!selectedTx.Any())
                 {
@@ -68,20 +76,32 @@ namespace TransactionViewer
                     return;
                 }
 
-                // Marquer Prelevement
+                // 1) INSCRIPTION d’abord (comme le bouton Enregistrement)
                 foreach (var tx in selectedTx)
                 {
                     TransactionRepository.UpdatePrelevementDone(tx.TransactionID);
                 }
 
-                // Imprimer (prélèvements => isFailed=false => portrait)
-                PrintByDate(selectedTx, isFailed: false);
+                // 2) RAFRAÎCHIR l’UI tout de suite (comportement d’origine)
+                RafraichirOnglets();
+                Application.DoEvents(); // forcer le repaint avant impression
+
+                // 3) IMPRIMER après que l’UI soit peinte
+                this.BeginInvoke((Action)(() =>
+                {
+                    // Imprimer (prélèvements => isFailed=false => portrait)
+                    PrintByDate(selectedTx, isFailed: false);
+                }));
 
                 lastPrintedList = selectedTx;
                 lastPrintedIsFailed = false;
             }
             else if (currentTab == tabNSF)
             {
+                // Valider la dernière case cochée avant lecture
+                dgvNSF.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                dgvNSF.EndEdit();
+
                 var selectedTx = GetCheckedTransactions(dgvNSF, "chkSelectNSF");
                 if (!selectedTx.Any())
                 {
@@ -96,20 +116,53 @@ namespace TransactionViewer
                     return;
                 }
 
+                // 1) INSCRIPTION d’abord (comme le bouton Enregistrement)
                 foreach (var tx in selectedTx)
                 {
                     TransactionRepository.UpdateNSFDone(tx.TransactionID);
                 }
 
-                // Imprimer (NSF => isFailed=true => paysage)
-                PrintByDate(selectedTx, isFailed: true);
+                // 2) RAFRAÎCHIR l’UI immédiatement
+                RafraichirOnglets();
+                Application.DoEvents(); // laisse la grille se mettre à jour visuellement
+
+                // 3) EXPORT + ARCHIVAGE (format verrouillé) + OUVERTURE DOSSIER
+                try
+                {
+                    string csvPath = CsvExporter.ExportTransactionsToCsvLockedFormat(
+                        selectedTx,
+                        destinationFilePath: null,
+                        dateFormat: "yyyy-MM-dd"   // format verrouillé
+                    );
+
+                    string archivedPath = ArchiveService.MoveToNsfArchive(csvPath);
+
+                    // Ouvrir automatiquement le dossier final et sélectionner le fichier
+                    OuvrirExplorerSurFichier(archivedPath);
+                }
+                catch (Exception ex)
+                {
+                    // On signale l’erreur mais on n’empêche pas l’impression
+                    MessageBox.Show("Erreur export/archivage NSF : " + ex.Message,
+                        "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+
+                // 4) IMPRIMER après que l’UI soit peinte
+                this.BeginInvoke((Action)(() =>
+                {
+                    // Imprimer (NSF => isFailed=true => paysage)
+                    PrintByDate(selectedTx, isFailed: true);
+                }));
 
                 lastPrintedList = selectedTx;
                 lastPrintedIsFailed = true;
             }
             else if (currentTab == tabExceptions)
             {
-                // NOUVEAU : gestion de l'onglet Exceptions
+                // Valider la dernière case cochée avant lecture
+                dgvExceptions.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                dgvExceptions.EndEdit();
+
                 var selectedTx = GetCheckedTransactions(dgvExceptions, "chkSelectExc");
                 if (!selectedTx.Any())
                 {
@@ -117,7 +170,7 @@ namespace TransactionViewer
                     return;
                 }
 
-                // 1) Mettre IsVerifier = true, IsException = false
+                // 1) Mettre IsVerifier = true, IsException = false (inscription)
                 foreach (var tx in selectedTx)
                 {
                     tx.IsVerifier = true;
@@ -125,11 +178,15 @@ namespace TransactionViewer
                     TransactionRepository.InsertOrUpdateTransaction(tx);
                 }
 
-                // 2) Imprimer via un manager d'Exception
-                PrintExceptions(selectedTx);
-
-                // 3) Rafraîchir
+                // 2) RAFRAÎCHIR l’UI avant impression (même UX que l’autre bouton)
                 RafraichirOnglets();
+                Application.DoEvents();
+
+                // 3) Imprimer via le manager d'Exceptions après repaint
+                this.BeginInvoke((Action)(() =>
+                {
+                    PrintExceptions(selectedTx);
+                }));
             }
         }
 
@@ -139,8 +196,12 @@ namespace TransactionViewer
         private void btnEnregistrementSql_Click(object sender, EventArgs e)
         {
             var currentTab = tabControl1.SelectedTab;
+
             if (currentTab == tabPrelevements)
             {
+                dgvPrelevements.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                dgvPrelevements.EndEdit();
+
                 var selectedTx = GetCheckedTransactions(dgvPrelevements, "chkSelectPrelev");
                 if (!selectedTx.Any())
                 {
@@ -155,6 +216,9 @@ namespace TransactionViewer
             }
             else if (currentTab == tabNSF)
             {
+                dgvNSF.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                dgvNSF.EndEdit();
+
                 var selectedTx = GetCheckedTransactions(dgvNSF, "chkSelectNSF");
                 if (!selectedTx.Any())
                 {
@@ -173,7 +237,9 @@ namespace TransactionViewer
             }
             else if (currentTab == tabExceptions)
             {
-                // Optionnel si vous voulez un "No Print" pour Exceptions
+                dgvExceptions.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                dgvExceptions.EndEdit();
+
                 var selectedTx = GetCheckedTransactions(dgvExceptions, "chkSelectExc");
                 if (!selectedTx.Any())
                 {
@@ -263,9 +329,9 @@ namespace TransactionViewer
 
             if (isFailed)
             {
-                // => NSF, on imprime en PAYSAGE
+                // => NSF, on imprime en PAYSAGE (groupé par LastModified.Date)
                 var grouped = txList
-                    .Where(t => DateTime.TryParse(t.LastModified, out var dt))
+                    .Where(t => DateTime.TryParse(t.LastModified, out var _))
                     .GroupBy(t =>
                     {
                         DateTime.TryParse(t.LastModified, out var dd);
@@ -299,9 +365,9 @@ namespace TransactionViewer
             }
             else
             {
-                // => Prélèvements => PORTRAIT
+                // => Prélèvements => PORTRAIT (groupé par TransactionDateTime.Date)
                 var grouped = txList
-                    .Where(t => DateTime.TryParse(t.TransactionDateTime, out var dt))
+                    .Where(t => DateTime.TryParse(t.TransactionDateTime, out var _))
                     .GroupBy(t =>
                     {
                         DateTime.TryParse(t.TransactionDateTime, out var dd);
@@ -335,16 +401,15 @@ namespace TransactionViewer
             }
         }
 
-        // Impression pour Exceptions si vous voulez un manager dédié
+        // Impression pour Exceptions via un manager dédié
         private void PrintExceptions(List<Transaction> txList)
         {
             if (txList == null || txList.Count == 0) return;
 
-            // ex. vous pouvez grouper par LastModified ou non
             PrintDocument pd = new PrintDocument();
-            pd.DefaultPageSettings.Landscape = true; // ou false, selon votre choix
+            pd.DefaultPageSettings.Landscape = true; // ajustable selon ton besoin
 
-            var mgr = new PrintManagerException(txList); // si vous avez une classe PrintManagerException
+            var mgr = new PrintManagerException(txList);
             pd.PrintPage += mgr.PrintDocument_PrintPage;
 
             using (PrintDialog diag = new PrintDialog())
@@ -400,18 +465,40 @@ namespace TransactionViewer
         }
 
         // idem si vous avez un dgvExceptions_CellContentClick
+
+        // =====================================
+        // = Helper : ouvrir le dossier de sortie et sélectionner le fichier
+        // =====================================
+        private void OuvrirExplorerSurFichier(string fullPath)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath)) return;
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = "/select,\"" + fullPath + "\"",
+                    UseShellExecute = true
+                };
+                Process.Start(psi);
+            }
+            catch
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(fullPath);
+                    if (!string.IsNullOrWhiteSpace(dir))
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = dir,
+                            UseShellExecute = true
+                        };
+                        Process.Start(psi);
+                    }
+                }
+                catch { /* no-op */ }
+            }
+        }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

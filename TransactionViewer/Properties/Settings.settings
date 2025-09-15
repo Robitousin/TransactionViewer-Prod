@@ -1,7 +1,12 @@
 ﻿<?xml version='1.0' encoding='utf-8'?>
-<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)">
-  <Profiles>
-    <Profile Name="(Default)" />
-  </Profiles>
-  <Settings />
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="TransactionViewer.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="OutputCsvFolder" Type="System.String" Scope="User">
+      <Value Profile="(Default)">C:\Users\Dominic\NSF</Value>
+    </Setting>
+    <Setting Name="ArchiveFolder" Type="System.String" Scope="User">
+      <Value Profile="(Default)">\\RS-HUB2\hub-P-CC\Programmes\TransactionViewer 0.1.22\NsfCsvArchive\NSF</Value>
+    </Setting>
+  </Settings>
 </SettingsFile>

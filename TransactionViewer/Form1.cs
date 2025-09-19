@@ -4,12 +4,12 @@ using System.Data;
 using System.Linq;
 using System.Windows.Forms;
 using System.Drawing.Printing;
-using System.Diagnostics;    // NEW: pour ouvrir l’Explorer
-using System.IO;             // NEW: pour Path.GetDirectoryName
+using System.Diagnostics;    // pour Process.Start / WaitForInputIdle
+using System.IO;             // pour Path.GetDirectoryName
 using TransactionViewer.DataAccess;
 using TransactionViewer.Models;
 using TransactionViewer.Printing;
-using TransactionViewer.Services; // NEW: CsvExporter + ArchiveService
+using TransactionViewer.Services; // CsvExporter + ArchiveService (si présents dans ton projet)
 
 namespace TransactionViewer
 {
@@ -17,6 +17,52 @@ namespace TransactionViewer
     {
         private List<Transaction> lastPrintedList = null;
         private bool lastPrintedIsFailed = false;
+
+        // --- Lancement programme tiers (NSF) ---
+        private const string CHEMIN_CREDIT_EXE = @"C:\v100\Credit.exe";
+
+        private bool LancerProgrammeCreditEtAttendre(int timeoutMs = 4000)
+        {
+            try
+            {
+                if (!System.IO.File.Exists(CHEMIN_CREDIT_EXE))
+                {
+                    MessageBox.Show(
+                        $"Programme introuvable : {CHEMIN_CREDIT_EXE}",
+                        "Crédit – Non trouvé",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = CHEMIN_CREDIT_EXE,
+                    UseShellExecute = true,
+                    WorkingDirectory = System.IO.Path.GetDirectoryName(CHEMIN_CREDIT_EXE)
+                    // Verb = "runas", // ← décommente si l’appli exige des droits admin (UAC)
+                };
+
+                var proc = Process.Start(psi);
+                if (proc == null) return false;
+
+                // Si application Win32 : attendre qu’elle soit prête (évite d’imprimer “trop tôt”)
+                try { proc.WaitForInputIdle(timeoutMs); } catch { /* no-op */ }
+
+                // Petite marge pour l’affichage visuel
+                Application.DoEvents();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Erreur lancement 'Credit.exe' : " + ex.Message,
+                    "Crédit – Erreur",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return false;
+            }
+        }
 
         public Form1()
         {
@@ -125,6 +171,10 @@ namespace TransactionViewer
                 // 2) RAFRAÎCHIR l’UI immédiatement
                 RafraichirOnglets();
                 Application.DoEvents(); // laisse la grille se mettre à jour visuellement
+
+                // *** NOUVEAU : Lancer le programme tiers AVANT export/archivage et AVANT impression
+                var creditOk = LancerProgrammeCreditEtAttendre(4000);
+                // Si tu veux bloquer la suite si non lancé : if (!creditOk) return;
 
                 // 3) EXPORT + ARCHIVAGE (format verrouillé) + OUVERTURE DOSSIER
                 try

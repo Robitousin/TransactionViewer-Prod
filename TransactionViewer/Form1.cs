@@ -1,5 +1,4 @@
-﻿// Form1.cs — version consolidée
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -118,6 +117,7 @@ namespace TransactionViewer
 
                 this.BeginInvoke((Action)(() =>
                 {
+                    // Prélèvements => portrait
                     PrintByDate(selectedTx, isFailed: false);
                 }));
 
@@ -152,7 +152,7 @@ namespace TransactionViewer
 
                 try
                 {
-                    // NSF root: AppSetting sinon profil courant (Documents\TransactionViewer\NSF)
+                    // NSF root : AppSetting sinon profil courant (Documents\TransactionViewer\NSF)
                     var nsfRoot = ConfigurationManager.AppSettings["NsfOutputRoot"];
                     if (string.IsNullOrWhiteSpace(nsfRoot))
                     {
@@ -161,7 +161,7 @@ namespace TransactionViewer
                     }
                     Directory.CreateDirectory(nsfRoot);
 
-                    // Chemin explicite => on n’utilise JAMAIS un défaut codé
+                    // Chemin EXPLICITE => plus jamais null
                     var outFile = Path.Combine(nsfRoot, $"NSF_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
 
                     string csvPath = CsvExporter.ExportTransactionsToCsvLockedFormat(
@@ -170,7 +170,7 @@ namespace TransactionViewer
                         dateFormat: "yyyy-MM-dd"
                     );
 
-                    // Archive root: AppSetting sinon profil courant (Documents\TransactionViewer\Archive)
+                    // Archive root : AppSetting sinon profil courant (Documents\TransactionViewer\Archive)
                     var archiveRoot = ConfigurationManager.AppSettings["ArchiveRoot"];
                     if (string.IsNullOrWhiteSpace(archiveRoot))
                     {
@@ -190,6 +190,7 @@ namespace TransactionViewer
 
                 this.BeginInvoke((Action)(() =>
                 {
+                    // NSF => paysage
                     PrintByDate(selectedTx, isFailed: true);
                 }));
 
@@ -240,7 +241,6 @@ namespace TransactionViewer
                     MessageBox.Show("Aucune transaction cochée pour Prélèvements.");
                     return;
                 }
-
                 foreach (var tx in selectedTx)
                     TransactionRepository.UpdatePrelevementDone(tx.TransactionID);
             }
@@ -274,7 +274,6 @@ namespace TransactionViewer
                     MessageBox.Show("Aucune transaction cochée pour Exceptions.");
                     return;
                 }
-
                 foreach (var tx in selectedTx)
                 {
                     tx.IsVerifier = true;
@@ -353,15 +352,14 @@ namespace TransactionViewer
 
                 foreach (var group in grouped)
                 {
-                    PrintDocument pd = new PrintDocument();
+                    PrintDocument pd = new PrintDocument { };
                     pd.DefaultPageSettings.Landscape = true;
 
                     var mgr = new PrintManagerFailed(group.ToList());
                     pd.PrintPage += mgr.PrintDocument_PrintPage;
 
-                    using (PrintDialog diag = new PrintDialog())
+                    using (PrintDialog diag = new PrintDialog { Document = pd })
                     {
-                        diag.Document = pd;
                         if (diag.ShowDialog() == DialogResult.OK) pd.Print();
                     }
                 }
@@ -381,15 +379,14 @@ namespace TransactionViewer
 
                 foreach (var group in grouped)
                 {
-                    PrintDocument pd = new PrintDocument();
+                    PrintDocument pd = new PrintDocument { };
                     pd.DefaultPageSettings.Landscape = false;
 
                     var mgr = new PrintManager(group.ToList());
                     pd.PrintPage += mgr.PrintDocument_PrintPage;
 
-                    using (PrintDialog diag = new PrintDialog())
+                    using (PrintDialog diag = new PrintDialog { Document = pd })
                     {
-                        diag.Document = pd;
                         if (diag.ShowDialog() == DialogResult.OK) pd.Print();
                     }
                 }
@@ -406,9 +403,8 @@ namespace TransactionViewer
             var mgr = new PrintManagerException(txList);
             pd.PrintPage += mgr.PrintDocument_PrintPage;
 
-            using (PrintDialog diag = new PrintDialog())
+            using (PrintDialog diag = new PrintDialog { Document = pd })
             {
-                diag.Document = pd;
                 if (diag.ShowDialog() == DialogResult.OK) pd.Print();
             }
         }

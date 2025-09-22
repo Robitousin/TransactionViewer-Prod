@@ -4,12 +4,13 @@ using System.Data;
 using System.Linq;
 using System.Windows.Forms;
 using System.Drawing.Printing;
-using System.Diagnostics;    // pour Process.Start / WaitForInputIdle
-using System.IO;             // pour Path.GetDirectoryName
+using System.Diagnostics;    // Process.Start / WaitForInputIdle
+using System.IO;             // Path, Directory
+using System.Configuration;  // ConfigurationManager.AppSettings
 using TransactionViewer.DataAccess;
 using TransactionViewer.Models;
 using TransactionViewer.Printing;
-using TransactionViewer.Services; // CsvExporter + ArchiveService (si présents dans ton projet)
+using TransactionViewer.Services; // CsvExporter + ArchiveService
 
 namespace TransactionViewer
 {
@@ -46,11 +47,10 @@ namespace TransactionViewer
                 var proc = Process.Start(psi);
                 if (proc == null) return false;
 
-                // Si application Win32 : attendre qu’elle soit prête (évite d’imprimer “trop tôt”)
+                // Attendre que l’appli soit prête (évite d’imprimer “trop tôt”)
                 try { proc.WaitForInputIdle(timeoutMs); } catch { /* no-op */ }
 
-                // Petite marge pour l’affichage visuel
-                Application.DoEvents();
+                Application.DoEvents(); // petite marge d’affichage
                 return true;
             }
             catch (Exception ex)
@@ -172,20 +172,42 @@ namespace TransactionViewer
                 RafraichirOnglets();
                 Application.DoEvents(); // laisse la grille se mettre à jour visuellement
 
-                // *** NOUVEAU : Lancer le programme tiers AVANT export/archivage et AVANT impression
+                // *** Lancer le programme tiers AVANT export/archivage et AVANT impression
                 var creditOk = LancerProgrammeCreditEtAttendre(4000);
                 // Si tu veux bloquer la suite si non lancé : if (!creditOk) return;
 
                 // 3) EXPORT + ARCHIVAGE (format verrouillé) + OUVERTURE DOSSIER
                 try
                 {
+                    // NSF root: AppSetting sinon profil courant (Documents\TransactionViewer\NSF)
+                    var nsfRoot = ConfigurationManager.AppSettings["NsfOutputRoot"];
+                    if (string.IsNullOrWhiteSpace(nsfRoot))
+                    {
+                        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                        nsfRoot = Path.Combine(docs, "TransactionViewer", "NSF");
+                    }
+                    Directory.CreateDirectory(nsfRoot);
+
+                    // Fichier de sortie explicite => plus de chemin “Dominic”
+                    var outFile = Path.Combine(nsfRoot, $"NSF_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+
                     string csvPath = CsvExporter.ExportTransactionsToCsvLockedFormat(
                         selectedTx,
-                        destinationFilePath: null,
-                        dateFormat: "yyyy-MM-dd"   // format verrouillé
+                        destinationFilePath: outFile,   // IMPORTANT : chemin explicite
+                        dateFormat: "yyyy-MM-dd"
                     );
 
-                    string archivedPath = ArchiveService.MoveToNsfArchive(csvPath);
+                    // Archive root: AppSetting sinon profil courant (Documents\TransactionViewer\Archive)
+                    var archiveRoot = ConfigurationManager.AppSettings["ArchiveRoot"];
+                    if (string.IsNullOrWhiteSpace(archiveRoot))
+                    {
+                        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                        archiveRoot = Path.Combine(docs, "TransactionViewer", "Archive");
+                    }
+                    Directory.CreateDirectory(archiveRoot);
+
+                    // Utilise la surcharge qui accepte la destination
+                    string archivedPath = ArchiveService.MoveToNsfArchive(csvPath, archiveRoot);
 
                     // Ouvrir automatiquement le dossier final et sélectionner le fichier
                     OuvrirExplorerSurFichier(archivedPath);

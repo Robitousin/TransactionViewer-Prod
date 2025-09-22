@@ -20,6 +20,7 @@ namespace TransactionViewer.Services
         /// - Ajout '" "' final (=> ,"" en fin de ligne)
         /// - Champs non vides entre guillemets; champs vides = rien (,,)
         /// </summary>
+        
         public static string ExportTransactionsToCsvLockedFormat(
             IEnumerable<Transaction> transactions,
             string destinationFilePath = null,

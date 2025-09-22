@@ -6,41 +6,44 @@ namespace TransactionViewer.Services
     public static class ArchiveService
     {
         /// <summary>
-        /// Déplace le fichier dans ...\Archive\NSF\yyyy-MM\NomFichier (et rend le nom unique si besoin).
+        /// Archive un CSV NSF vers un dossier racine donné.
+        /// Crée un sous-dossier par date (yyyyMMdd) et renvoie le chemin final.
         /// </summary>
-        public static string MoveToNsfArchive(string filePath)
+        public static string MoveToNsfArchive(string csvPath, string archiveRoot)
         {
-            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-                throw new FileNotFoundException("Fichier introuvable pour archivage.", filePath);
+            if (string.IsNullOrWhiteSpace(csvPath) || !File.Exists(csvPath))
+                throw new FileNotFoundException("CSV introuvable pour archivage.", csvPath);
 
-            string baseArchive = AppPaths.ArchiveFolder;
-            string month = DateTime.Now.ToString("yyyy-MM");
-            string destDir = Path.Combine(baseArchive, "NSF", month);
-            Directory.CreateDirectory(destDir);
-
-            string destPath = Path.Combine(destDir, Path.GetFileName(filePath));
-            destPath = EnsureUnique(destPath);
-
-            File.Move(filePath, destPath);
-            return destPath;
-        }
-
-        private static string EnsureUnique(string path)
-        {
-            if (!File.Exists(path)) return path;
-            string dir = Path.GetDirectoryName(path);
-            string name = Path.GetFileNameWithoutExtension(path);
-            string ext = Path.GetExtension(path);
-
-            int i = 1;
-            string candidate;
-            do
+            if (string.IsNullOrWhiteSpace(archiveRoot))
             {
-                candidate = Path.Combine(dir, $"{name} ({i}){ext}");
-                i++;
-            } while (File.Exists(candidate));
+                // Fallback : Documents\TransactionViewer\Archive (profil courant)
+                var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                archiveRoot = Path.Combine(docs, "TransactionViewer", "Archive");
+            }
 
-            return candidate;
+            // Sous-dossier par date pour garder les exports propres
+            var dayFolder = Path.Combine(archiveRoot, DateTime.Now.ToString("yyyyMMdd"));
+            Directory.CreateDirectory(dayFolder);
+
+            var fileName = Path.GetFileName(csvPath);
+            var target = Path.Combine(dayFolder, fileName);
+
+            // Si le fichier existe déjà, suffixer l’heure pour uniqueness
+            if (File.Exists(target))
+            {
+                var name = Path.GetFileNameWithoutExtension(fileName);
+                var ext = Path.GetExtension(fileName);
+                target = Path.Combine(dayFolder, $"{name}_{DateTime.Now:HHmmss}{ext}");
+            }
+
+            File.Move(csvPath, target);
+            return target;
         }
+
+        /// <summary>
+        /// Rétro-compat : si du code appelle encore l’ancienne signature.
+        /// </summary>
+        public static string MoveToNsfArchive(string csvPath) =>
+            MoveToNsfArchive(csvPath, archiveRoot: null);
     }
 }

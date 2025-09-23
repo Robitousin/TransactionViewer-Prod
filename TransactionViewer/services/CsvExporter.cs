@@ -7,7 +7,7 @@ using System.Linq;
 using TransactionViewer.Models;
 
 namespace TransactionViewer.Services
-{
+{    
     public static class CsvExporter
     {
         /// <summary>

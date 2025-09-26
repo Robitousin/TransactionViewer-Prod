@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Globalization;
+using System.Linq;
 using TransactionViewer.Models;
 
 namespace TransactionViewer
@@ -57,8 +58,8 @@ namespace TransactionViewer
                 / lineHeight);
 
             // ===== Entête commun =====
-            e.Graphics.DrawString("Rapport de Transactions", titleFont,Brushes.Black,
-                 e.MarginBounds.Left + (e.MarginBounds.Width / 2),e.MarginBounds.Top - 70, centerAlign);
+            e.Graphics.DrawString("Rapport de Transactions", titleFont, Brushes.Black,
+                 e.MarginBounds.Left + (e.MarginBounds.Width / 2), e.MarginBounds.Top - 70, centerAlign);
 
             e.Graphics.DrawString("Prélèvements", titleFont, Brushes.Black,
                 e.MarginBounds.Left + (e.MarginBounds.Width / 2), e.MarginBounds.Top - 45, centerAlign);
@@ -125,7 +126,7 @@ namespace TransactionViewer
                 decimal creditDecimal = ParseDecimal(tx.CreditAmount);
                 DateTime? dateParsed = ParseDateTime(tx.TransactionDateTime);
 
-                string clientRef = tx.ClientReferenceNumber ?? "";
+                string clientRef = ClientRefOrAccountIdNumeric(tx); // <-- règle appliquée ici
                 string fullName = tx.FullName ?? "";
                 string amountStr = FormatCurrency(creditDecimal);
                 string dateStr = FormatDate(dateParsed);
@@ -222,6 +223,26 @@ namespace TransactionViewer
             }
             Console.WriteLine($"Total calculated: {total}");
             return FormatCurrency(total);
+        }
+
+        // ====== Règle #Client : ClientReferenceNumber sinon ClientAccountID (numérique) ======
+        private static bool IsDigitsOnly(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            foreach (char c in s.Trim())
+                if (!char.IsDigit(c)) return false;
+            return true;
+        }
+
+        private static string ClientRefOrAccountIdNumeric(Transaction tx)
+        {
+            var refNum = (tx.ClientReferenceNumber ?? "").Trim();
+            if (!string.IsNullOrEmpty(refNum)) return refNum;
+
+            var accountId = (tx.ClientAccountID ?? "").Trim();
+            if (IsDigitsOnly(accountId)) return accountId;
+
+            return "";
         }
     }
 }

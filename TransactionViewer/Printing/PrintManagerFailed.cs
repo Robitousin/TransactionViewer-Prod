@@ -169,7 +169,7 @@ namespace TransactionViewer
                 // Transmis Le => TransactionDateTime
                 DateTime? dtTrans = ParseDateTime(tx.TransactionDateTime);
 
-                string clientRef = tx.ClientReferenceNumber ?? "";
+                string clientRef = ClientRefOrAccountIdNumeric(tx); // <-- règle appliquée ici
                 string fullName = tx.FullName ?? "";
                 string amountStr = FormatCurrency(amountDec);
 
@@ -298,8 +298,29 @@ namespace TransactionViewer
                 return dt.Value.ToString("dd/MM/yyyy");
             return "";
         }
+
+        // ====== Règle #Client : ClientReferenceNumber sinon ClientAccountID (numérique) ======
+        private static bool IsDigitsOnly(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            foreach (char c in s.Trim())
+                if (!char.IsDigit(c)) return false;
+            return true;
+        }
+
+        private static string ClientRefOrAccountIdNumeric(Transaction tx)
+        {
+            var refNum = (tx.ClientReferenceNumber ?? "").Trim();
+            if (!string.IsNullOrEmpty(refNum)) return refNum;
+
+            var accountId = (tx.ClientAccountID ?? "").Trim();
+            if (IsDigitsOnly(accountId)) return accountId;
+
+            return "";
+        }
     }
 }
+
 
 
 

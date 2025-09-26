@@ -8,6 +8,7 @@ using System.Diagnostics;    // Process.Start / WaitForInputIdle
 using System.IO;             // Path, Directory
 using System.Configuration;  // ConfigurationManager.AppSettings
 using TransactionViewer.DataAccess;
+using TransactionViewer.Helpers;
 using TransactionViewer.Models;
 using TransactionViewer.Printing;
 using TransactionViewer.Services; // CsvExporter + ArchiveService
@@ -69,11 +70,14 @@ namespace TransactionViewer
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            dgvPrelevements.EditMode = DataGridViewEditMode.EditOnEnter;
-            dgvNSF.EditMode = DataGridViewEditMode.EditOnEnter;
-            dgvExceptions.EditMode = DataGridViewEditMode.EditOnEnter;
-            RafraichirOnglets();
+            // ... (ton code existant) ...
+            dgvPrelevements.CellFormatting += Dgv_CellFormatting_ClientRefFallback;
+            dgvNSF.CellFormatting += Dgv_CellFormatting_ClientRefFallback;
+            dgvExceptions.CellFormatting += Dgv_CellFormatting_ClientRefFallback;
+
+            RafraichirOnglets(); // déjà présent chez toi:contentReference[oaicite:6]{index=6}
         }
+
 
         private void btnImporter_Click(object sender, EventArgs e)
         {
@@ -91,6 +95,32 @@ namespace TransactionViewer
         private void btnRafraichir_Click(object sender, EventArgs e)
         {
             RafraichirOnglets();
+        }
+
+        private void Dgv_CellFormatting_ClientRefFallback(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            var dgv = sender as DataGridView;
+            if (dgv == null || e.RowIndex < 0 || e.ColumnIndex < 0) return;
+
+            var col = dgv.Columns[e.ColumnIndex];
+
+            // On cible strictement la colonne "ClientReferenceNumber"
+            // (avec AutoGenerateColumns, DataPropertyName == nom de propriété du modèle)
+            var isClientRefCol =
+                (col.DataPropertyName ?? col.Name) == "ClientReferenceNumber";
+
+            if (!isClientRefCol) return;
+
+            // Récupère la Transaction de la ligne
+            var tx = dgv.Rows[e.RowIndex].DataBoundItem as Transaction;
+            if (tx == null) return;
+
+            var display = ClientRefHelper.GetClientRef(tx);
+            if (display != null)
+            {
+                e.Value = display;
+                e.FormattingApplied = true;
+            }
         }
 
         private void btnImpressionEnregistrement_Click(object sender, EventArgs e)

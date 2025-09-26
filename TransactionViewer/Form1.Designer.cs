@@ -55,7 +55,7 @@
             this.tabControl1.Location = new System.Drawing.Point(12, 41);
             this.tabControl1.Name = "tabControl1";
             this.tabControl1.SelectedIndex = 0;
-            this.tabControl1.Size = new System.Drawing.Size(1303, 585);
+            this.tabControl1.Size = new System.Drawing.Size(1155, 585);
             this.tabControl1.TabIndex = 0;
             // 
             // tabPrelevements
@@ -65,7 +65,7 @@
             this.tabPrelevements.Location = new System.Drawing.Point(4, 22);
             this.tabPrelevements.Name = "tabPrelevements";
             this.tabPrelevements.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPrelevements.Size = new System.Drawing.Size(1295, 559);
+            this.tabPrelevements.Size = new System.Drawing.Size(1147, 559);
             this.tabPrelevements.TabIndex = 0;
             this.tabPrelevements.Text = "Prélèvements";
             this.tabPrelevements.UseVisualStyleBackColor = true;
@@ -83,12 +83,14 @@
             // 
             // dgvPrelevements
             // 
+            this.dgvPrelevements.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.AllCells;
+            this.dgvPrelevements.AutoSizeRowsMode = System.Windows.Forms.DataGridViewAutoSizeRowsMode.AllCells;
             this.dgvPrelevements.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvPrelevements.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.chkSelectPrelev});
-            this.dgvPrelevements.Location = new System.Drawing.Point(9, 35);
+            this.dgvPrelevements.Location = new System.Drawing.Point(3, 29);
             this.dgvPrelevements.Name = "dgvPrelevements";
-            this.dgvPrelevements.Size = new System.Drawing.Size(1283, 524);
+            this.dgvPrelevements.Size = new System.Drawing.Size(1141, 524);
             this.dgvPrelevements.TabIndex = 0;
             this.dgvPrelevements.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPrelevements_CellContentClick);
             // 
@@ -96,6 +98,7 @@
             // 
             this.chkSelectPrelev.HeaderText = "Select";
             this.chkSelectPrelev.Name = "chkSelectPrelev";
+            this.chkSelectPrelev.Width = 43;
             // 
             // tabNSF
             // 
@@ -185,7 +188,7 @@
             // 
             // btnRafraichir
             // 
-            this.btnRafraichir.Location = new System.Drawing.Point(337, 12);
+            this.btnRafraichir.Location = new System.Drawing.Point(221, 12);
             this.btnRafraichir.Name = "btnRafraichir";
             this.btnRafraichir.Size = new System.Drawing.Size(82, 23);
             this.btnRafraichir.TabIndex = 2;
@@ -195,7 +198,7 @@
             // 
             // btnImpressionEnregistrement
             // 
-            this.btnImpressionEnregistrement.Location = new System.Drawing.Point(210, 12);
+            this.btnImpressionEnregistrement.Location = new System.Drawing.Point(115, 12);
             this.btnImpressionEnregistrement.Name = "btnImpressionEnregistrement";
             this.btnImpressionEnregistrement.Size = new System.Drawing.Size(100, 23);
             this.btnImpressionEnregistrement.TabIndex = 3;
@@ -205,7 +208,7 @@
             // 
             // btnEnregistrementSql
             // 
-            this.btnEnregistrementSql.Location = new System.Drawing.Point(1089, 12);
+            this.btnEnregistrementSql.Location = new System.Drawing.Point(975, 12);
             this.btnEnregistrementSql.Name = "btnEnregistrementSql";
             this.btnEnregistrementSql.Size = new System.Drawing.Size(106, 23);
             this.btnEnregistrementSql.TabIndex = 4;
@@ -215,7 +218,7 @@
             // 
             // btnReimprimerDerniere
             // 
-            this.btnReimprimerDerniere.Location = new System.Drawing.Point(1223, 12);
+            this.btnReimprimerDerniere.Location = new System.Drawing.Point(1087, 12);
             this.btnReimprimerDerniere.Name = "btnReimprimerDerniere";
             this.btnReimprimerDerniere.Size = new System.Drawing.Size(76, 23);
             this.btnReimprimerDerniere.TabIndex = 5;
@@ -225,7 +228,7 @@
             // 
             // Form1
             // 
-            this.ClientSize = new System.Drawing.Size(1323, 632);
+            this.ClientSize = new System.Drawing.Size(1179, 632);
             this.Controls.Add(this.btnReimprimerDerniere);
             this.Controls.Add(this.btnEnregistrementSql);
             this.Controls.Add(this.btnImpressionEnregistrement);

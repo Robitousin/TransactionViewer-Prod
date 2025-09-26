@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Globalization;
+using System.Linq;
 using TransactionViewer.Models;
 
 namespace TransactionViewer.Printing
@@ -137,7 +138,7 @@ namespace TransactionViewer.Printing
                 DateTime? dtTrans = ParseDateTime(tx.TransactionDateTime);
                 DateTime? dtNsf = ParseDateTime(tx.LastModified);
 
-                string clientRef = tx.ClientReferenceNumber ?? "";
+                string clientRef = ClientRefOrAccountIdNumeric(tx); // <-- règle appliquée ici
                 string fullName = tx.FullName ?? "";
                 string amountStr = FormatCurrency(amountDec);
                 string dateTransmis = FormatDate(dtTrans);
@@ -175,7 +176,7 @@ namespace TransactionViewer.Printing
                                  (recordIndex == 0 ? firstPageFooterSpacing : generalFooterSpacing);
 
             e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, footerPosition - 10,
-                                e.MarginBounds.Right, footerPosition - 10);
+                                e.MarginBounds.Right, e.MarginBounds.Top - 10);
 
             e.Graphics.DrawString($"Page {pageCounter}", footerFont, Brushes.Black,
                                   e.MarginBounds.Right - 50, footerPosition - 5, rightAlign);
@@ -241,7 +242,28 @@ namespace TransactionViewer.Printing
                 return dt;
             return null;
         }
+
+        // ====== Règle #Client : ClientReferenceNumber sinon ClientAccountID (numérique) ======
+        private static bool IsDigitsOnly(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            foreach (char c in s.Trim())
+                if (!char.IsDigit(c)) return false;
+            return true;
+        }
+
+        private static string ClientRefOrAccountIdNumeric(Transaction tx)
+        {
+            var refNum = (tx.ClientReferenceNumber ?? "").Trim();
+            if (!string.IsNullOrEmpty(refNum)) return refNum;
+
+            var accountId = (tx.ClientAccountID ?? "").Trim();
+            if (IsDigitsOnly(accountId)) return accountId;
+
+            return "";
+        }
     }
 }
+
 
 

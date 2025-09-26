@@ -92,12 +92,14 @@
     <Compile Include="AppPaths.cs" />
     <Compile Include="DataAccess\DbHelper.cs" />
     <Compile Include="DataAccess\TransactionRepository.cs" />
+    <Compile Include="Exporting\CsvExporterNsf.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="Helpers\ClientRefHelper.cs" />
     <Compile Include="JsonImportService.cs" />
     <Compile Include="Models\Transaction.cs" />
     <Compile Include="Printing\IPrintManager.cs" />

@@ -299,13 +299,17 @@ namespace TransactionViewer
         {
             var prel = TransactionRepository.GetPrelevements();
             dgvPrelevements.DataSource = prel;
+            ApplyUnifiedLayout(dgvPrelevements, "chkSelectPrelev");
 
             var nsf = TransactionRepository.GetNSF();
             dgvNSF.DataSource = nsf;
+            ApplyUnifiedLayout(dgvNSF, "chkSelectNSF");
 
             var exc = TransactionRepository.GetExceptions();
             dgvExceptions.DataSource = exc;
+            ApplyUnifiedLayout(dgvExceptions, "chkSelectExc");
         }
+
 
         private List<Transaction> GetCheckedTransactions(DataGridView dgv, string checkboxColumnName)
         {
@@ -426,6 +430,102 @@ namespace TransactionViewer
                 row.Cells[checkboxColumnName].Value = check;
             dgv.EndEdit();
             dgv.Refresh();
+        }
+        // Ordre unifié souhaité pour tous les onglets
+        private static readonly string[] UnifiedOrder = {
+    "TransactionDateTime",
+    "TransactionID",
+    "TransactionType",
+    "ClientReferenceNumber",
+    "FullName",
+    "CreditAmount",
+    "LastModified",            // <-- AJOUT ICI
+    "TransactionStatus",
+    "TransactionFailureReason",
+    "TransactionErrorCode",
+    "Notes",
+    "TransactionFlag"
+};
+
+        private static readonly System.Collections.Generic.Dictionary<string, string> UnifiedHeaders
+            = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["TransactionDateTime"] = "Transmis le",
+                ["TransactionID"] = "TransactionID",
+                ["TransactionType"] = "Type",
+                ["ClientReferenceNumber"] = "# Client",
+                ["FullName"] = "Nom",
+                ["CreditAmount"] = "Montant",
+                ["LastModified"] = "Dernière modif",
+                ["TransactionStatus"] = "Statut",
+                ["TransactionFailureReason"] = "Raison échec",
+                ["TransactionErrorCode"] = "Code erreur",
+                ["Notes"] = "Notes",
+                ["TransactionFlag"] = "Drapeau"
+            };
+
+        // Mise en forme commune pour une grille et son nom de colonne checkbox
+        private void ApplyUnifiedLayout(DataGridView dgv, string checkboxColumnName)
+        {
+            BaseGridTuning(dgv);
+
+            // 1) Rendre visibles + renommer les colonnes d'intérêt
+            foreach (var colName in UnifiedOrder)
+            {
+                if (dgv.Columns.Contains(colName))
+                {
+                    dgv.Columns[colName].Visible = true;
+                    if (UnifiedHeaders.TryGetValue(colName, out var header))
+                        dgv.Columns[colName].HeaderText = header;
+                }
+            }
+
+            // 2) Case à cocher en première colonne si présente
+            int startIndex = 0;
+            if (!string.IsNullOrEmpty(checkboxColumnName) && dgv.Columns.Contains(checkboxColumnName))
+            {
+                dgv.Columns[checkboxColumnName].DisplayIndex = 0;
+                startIndex = 1;
+            }
+
+            // 3) Appliquer l'ordre demandé, immédiatement après (DisplayIndex)
+            for (int i = 0; i < UnifiedOrder.Length; i++)
+            {
+                string col = UnifiedOrder[i];
+                if (dgv.Columns.Contains(col))
+                {
+                    dgv.Columns[col].DisplayIndex = startIndex + i;
+                }
+            }
+
+            // 4) Masquer toutes les colonnes non listées (bruit)
+            var allowed = new System.Collections.Generic.HashSet<string>(UnifiedOrder);
+            if (!string.IsNullOrEmpty(checkboxColumnName))
+                allowed.Add(checkboxColumnName);
+
+            foreach (DataGridViewColumn c in dgv.Columns)
+            {
+                if (!allowed.Contains(c.Name))
+                    c.Visible = false;
+            }
+
+            // 5) Ajustements visuels
+            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            dgv.RowHeadersVisible = false;
+            if (dgv.Columns.Contains("CreditAmount"))
+                dgv.Columns["CreditAmount"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            if (dgv.Columns.Contains("TransactionDateTime"))
+                dgv.Columns["TransactionDateTime"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            if (dgv.Columns.Contains("LastModified"))
+                dgv.Columns["LastModified"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+
+        private void BaseGridTuning(DataGridView dgv)
+        {
+            // On impose l’ordre, donc pas besoin de ré-ordonnancement manuel par l’utilisateur
+            dgv.AllowUserToOrderColumns = false;
+            dgv.AllowUserToResizeColumns = true;
+            dgv.AutoGenerateColumns = true; // on laisse générer depuis Transaction (DataSource = List<Transaction>)
         }
 
         private void dgvPrelevements_CellContentClick(object sender, DataGridViewCellEventArgs e)

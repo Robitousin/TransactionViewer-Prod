@@ -54,20 +54,24 @@ namespace TransactionViewer
                         existingTx.Notes = jt.Notes;
                         existingTx.ChildTransactionIDs = jt.ChildTransactionIDs;
 
-                        // 5) LOGIQUE DE RÉACTIVATION
+                        // 5) LOGIQUE DE RÉACTIVATION (NOUVELLE RÈGLE)
                         //    Si la transaction était déjà traitée (IsPrelevementDone || IsNSFDone)
-                        //    et que le nouveau TransactionStatus "réouvre" la transaction
-                        //    => on passe en Exception
+                        //    et que le nouveau TransactionStatus est "in progress" ou "reopen"
+                        //    => NE PAS la marquer en Exception et NE PAS remettre les drapeaux à false.
+                        //    On conserve l'état traité.
                         if ((existingTx.IsPrelevementDone || existingTx.IsNSFDone)
-                            && (jt.TransactionStatus == "in progress"
-                                || jt.TransactionStatus == "reopen"))
+                            && (string.Equals(jt.TransactionStatus, "in progress", StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(jt.TransactionStatus, "reopen", StringComparison.OrdinalIgnoreCase)))
                         {
-                            // On annule le traitement
-                            existingTx.IsPrelevementDone = false;
-                            existingTx.IsNSFDone = false;
-                            // On la place en "Exception"
-                            existingTx.IsException = true;
+                            // On s'assure qu'elle n'est pas en Exception
+                            existingTx.IsException = false;
+
+                            // Optionnel : on peut poser un marqueur de vérification manuelle
+                            // existingTx.IsVerifier = true;
+
+                            // IMPORTANT : on NE remet PAS IsPrelevementDone / IsNSFDone à false
                         }
+
 
                         // 6) Mise à jour en base
                         TransactionRepository.InsertOrUpdateTransaction(existingTx);

@@ -77,14 +77,19 @@ namespace TransactionViewer.DataAccess
             using (SqlConnection conn = new SqlConnection(DbHelper.ConnString))
             {
                 conn.Open();
-                // Inclure IsException=1 OU TransactionStatus='cancelled'
+                // Exceptions = IsException=1 OU cancelled
+                // MAIS on exclut explicitement le cas "ré-ouvert" ET déjà traité (Prélèvements ou NSF)
                 string sql = @"
-                    SELECT *
-                    FROM Transactions
-                    WHERE IsException = 1
-                       OR TransactionStatus = 'cancelled'
-                    ORDER BY LastModified ASC
-                ";
+            SELECT *
+            FROM Transactions
+            WHERE
+                (IsException = 1 OR TransactionStatus = 'cancelled')
+                AND NOT (
+                    TransactionStatus IN ('in progress', 'reopen')
+                    AND (IsPrelevementDone = 1 OR IsNSFDone = 1)
+                )
+            ORDER BY LastModified ASC
+        ";
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 using (SqlDataReader rdr = cmd.ExecuteReader())
                 {
@@ -96,6 +101,7 @@ namespace TransactionViewer.DataAccess
             }
             return list;
         }
+
 
         // ==========================
         // = Mise à jour de statut =

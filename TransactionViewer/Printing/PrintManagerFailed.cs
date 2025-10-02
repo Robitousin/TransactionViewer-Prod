@@ -10,322 +10,68 @@ namespace TransactionViewer
 {
     public class PrintManagerFailed : IPrintManager
     {
-        // On stocke la liste triée par Montant (CreditAmount)
-        private List<Transaction> transactions;
-
-        // Indices pour le parcours d'impression
+        private readonly List<Transaction> transactions;
         private int recordIndex = 0;
         private int pageCounter = 1;
 
-        // Nouvelles largeurs et ordre de colonnes
-        // #Client, Nom, Montant, DateNSF, TransmisLe, Code, NSF Raison
-        private readonly int[] columnWidths = { 90, 280, 90, 110, 110, 60, 220 };
-        private readonly string[] headers =
-        {
-            "# Client",
-            "Nom du Client",
-            "Montant",
-            "Date NSF",
-            "Transmis Le",
-            "Code",
-            "NSF Raison"
-        };
+        private readonly int[] colWidths = { 90, 280, 90, 110, 110, 60, 220 };
+        private readonly string[] headers = { "# Client", "Nom", "Montant", "Date NSF", "Transmis Le", "Code", "Raison NSF" };
 
-        // Paramètres d'espacement
-        private int firstPageHeaderSpacing = 40;
-        private int firstPageFooterSpacing = 40;
-        private int generalHeaderSpacing = 20;
-        private int generalFooterSpacing = 20;
-
-        /// <summary>
-        /// Constructeur : on trie la liste du plus petit au plus grand Montant
-        /// </summary>
-        public PrintManagerFailed(List<Transaction> transactions)
+        public PrintManagerFailed(List<Transaction> list)
         {
-            // Tri par montant ascendant
-            this.transactions = (transactions ?? new List<Transaction>())
-                .OrderBy(tx => ParseDecimal(tx.CreditAmount))
-                .ToList();
+            transactions = (list ?? new List<Transaction>()).OrderBy(t => ParseDecimal(t.CreditAmount)).ToList();
         }
 
         public void PrintDocument_PrintPage(object sender, PrintPageEventArgs e)
         {
-            int lineHeight = 18;
+            Font hf = new Font("Arial", 10, FontStyle.Bold);
+            Font tf = new Font("Arial", 14, FontStyle.Bold);
+            Font cf = new Font("Arial", 9);
 
-            Font headerFont = new Font("Arial", 10, FontStyle.Bold);
-            Font titleFont = new Font("Arial", 14, FontStyle.Bold);
-            Font contentFont = new Font("Arial", 9);
-            Font footerFont = new Font("Arial", 8);
+            StringFormat L = new StringFormat { Alignment = StringAlignment.Near };
+            StringFormat C = new StringFormat { Alignment = StringAlignment.Center };
 
-            StringFormat leftAlign = new StringFormat { Alignment = StringAlignment.Near };
-            StringFormat centerAlign = new StringFormat { Alignment = StringAlignment.Center };
-            StringFormat rightAlign = new StringFormat { Alignment = StringAlignment.Far };
+            int[] pos = new int[colWidths.Length];
+            pos[0] = 70;
+            for (int i = 1; i < colWidths.Length; i++) pos[i] = pos[i - 1] + colWidths[i - 1];
 
-            // Positions des colonnes
-            int[] columnPositions = new int[columnWidths.Length];
-            columnPositions[0] = 70;
-            for (int i = 1; i < columnWidths.Length; i++)
-            {
-                columnPositions[i] = columnPositions[i - 1] + columnWidths[i - 1];
-            }
+            int top = recordIndex == 0 ? 140 : 100;
+            int ipp = (e.MarginBounds.Height - top - 40) / 18;
 
-            // Calcul des marges (haut, espace dispo, etc.)
-            int topMargin = recordIndex == 0
-                ? 120 + firstPageHeaderSpacing
-                : 90 + generalHeaderSpacing;
+            e.Graphics.DrawString("Rapport de Transactions - NSF", tf, Brushes.Black, e.MarginBounds.Left + (e.MarginBounds.Width / 2), e.MarginBounds.Top - 50, C);
 
-            int itemsPerPage = (e.MarginBounds.Height - topMargin -
-                               (recordIndex == 0
-                                   ? firstPageFooterSpacing
-                                   : generalFooterSpacing))
-                               / lineHeight;
-
-            // ====== En-tête ======
-            e.Graphics.DrawString("Rapport de Transactions", titleFont, Brushes.Black,
-                e.MarginBounds.Left + (e.MarginBounds.Width / 2),
-                e.MarginBounds.Top - 70,
-                centerAlign);
-
-            e.Graphics.DrawString("NSF", titleFont, Brushes.Black,
-                e.MarginBounds.Left + (e.MarginBounds.Width / 2),
-                e.MarginBounds.Top - 45,
-                centerAlign);
-
-            e.Graphics.DrawLine(Pens.Black,
-                e.MarginBounds.Left,
-                e.MarginBounds.Top - 10,
-                e.MarginBounds.Right,
-                e.MarginBounds.Top - 10);
-
-            // Champs dynamiques sur la première page
-            if (recordIndex == 0)
-            {
-                // Logo
-                if (System.IO.File.Exists("Resources/logo.png"))
-                {
-                    Image logo = Image.FromFile("Resources/logo.png");
-                    e.Graphics.DrawImage(logo, new Rectangle(30, 22, 120, 86));
-                }
-
-                int dynamicTop = 130;
-                e.Graphics.DrawString($"Nom : {GetDynamicName()}", contentFont, Brushes.Black,
-                    30, dynamicTop, leftAlign);
-                dynamicTop += lineHeight + 5;
-
-                // Type => TransactionType (s'il y a au moins une transaction)
-                string transactionType = "";
-                if (transactions.Count > 0)
-                {
-                    transactionType = transactions[0].TransactionType ?? "";
-                }
-                e.Graphics.DrawString($"Type: {transactionType}", contentFont, Brushes.Black,
-                    30, dynamicTop, leftAlign);
-                dynamicTop += lineHeight + 5;
-
-                // Total => somme de CreditAmount
-                e.Graphics.DrawString($"Total : {CalculateTotalWithLogging()}", contentFont, Brushes.Black,
-                    30, dynamicTop, leftAlign);
-
-                // Référence => date "LastModified" du premier
-                string refDate = "";
-                if (transactions.Count > 0)
-                {
-                    var firstTx = transactions[0];
-                    DateTime? dt = ParseDateTime(firstTx.LastModified);
-                    refDate = dt.HasValue
-                        ? dt.Value.ToString("dd/MM/yyyy") // Format jj/MM/aaaa
-                        : "";
-                }
-                e.Graphics.DrawString($"Référence : {refDate}", contentFont, Brushes.Black,
-                    e.MarginBounds.Right - 10, 30, rightAlign);
-
-                topMargin = dynamicTop + 40;
-            }
-
-            // ====== En-têtes de colonnes ======
             for (int i = 0; i < headers.Length; i++)
-            {
-                // On centre "Date NSF" et "Transmis Le" si on veut
-                var format = leftAlign;
-                if (headers[i] == "Date NSF" || headers[i] == "Transmis Le")
-                    format = centerAlign;
+                e.Graphics.DrawString(headers[i], hf, Brushes.Black, new RectangleF(pos[i], top, colWidths[i], 18), (i == 3 || i == 4) ? C : L);
+            top += 18;
 
-                e.Graphics.DrawString(headers[i], headerFont, Brushes.Black,
-                    new RectangleF(columnPositions[i], topMargin, columnWidths[i], lineHeight),
-                    format);
-            }
-            topMargin += lineHeight;
-
-            // ====== Lignes de données ======
-            while (recordIndex < transactions.Count && itemsPerPage > 0)
+            while (recordIndex < transactions.Count && ipp > 0)
             {
                 var tx = transactions[recordIndex];
-
-                // Montant => on l'affiche en ordre trié
-                decimal amountDec = ParseDecimal(tx.CreditAmount);
-
-                // Date NSF => LastModified
-                DateTime? dtNsf = ParseDateTime(tx.LastModified);
-                // Transmis Le => TransactionDateTime
-                DateTime? dtTrans = ParseDateTime(tx.TransactionDateTime);
-
-                string clientRef = ClientRefOrAccountIdNumeric(tx); // <-- règle appliquée ici
-                string fullName = tx.FullName ?? "";
-                string amountStr = FormatCurrency(amountDec);
-
-                // "Date NSF"
-                string dateNsfStr = FormatDate(dtNsf);
-                // "Transmis Le"
-                string dateTransStr = FormatDate(dtTrans);
-
-                // Code => TransactionErrorCode
-                string code = tx.TransactionErrorCode ?? "";
-                // NSF Raison => TransactionFailureReason
-                string reason = tx.TransactionFailureReason ?? "";
-
-                // Ordre: #Client, Nom, Montant, DateNSF, TransmisLe, Code, NSF Raison
-                string[] rowData =
+                string[] row =
                 {
-                    clientRef,
-                    fullName,
-                    amountStr,
-                    dateNsfStr,
-                    dateTransStr,
-                    code,
-                    reason
+                    tx.ClientReferenceNumber ?? "",
+                    tx.FullName ?? "",
+                    FormatCurrency(ParseDecimal(tx.CreditAmount)),
+                    FormatDate(ParseDateTime(tx.LastModified)),
+                    FormatDate(ParseDateTime(tx.TransactionDateTime)),
+                    tx.TransactionErrorCode ?? "",
+                    tx.TransactionFailureReason ?? ""
                 };
+                for (int i = 0; i < row.Length; i++)
+                    e.Graphics.DrawString(row[i], cf, Brushes.Black, new RectangleF(pos[i], top, colWidths[i], 18), (i == 3 || i == 4) ? C : L);
 
-                for (int i = 0; i < rowData.Length; i++)
-                {
-                    var format = leftAlign;
-                    // On centre pour les dates
-                    if (i == 3 || i == 4) format = centerAlign;
-
-                    e.Graphics.DrawString(rowData[i], contentFont, Brushes.Black,
-                        new RectangleF(columnPositions[i], topMargin, columnWidths[i], lineHeight),
-                        format);
-                }
-
-                topMargin += lineHeight;
-                recordIndex++;
-                itemsPerPage--;
+                recordIndex++; top += 18; ipp--;
             }
 
-            // ====== Pied de page ======
-            int footerPosition = e.MarginBounds.Bottom -
-                (recordIndex == 0 ? firstPageFooterSpacing : generalFooterSpacing);
-
-            e.Graphics.DrawLine(Pens.Black,
-                e.MarginBounds.Left,
-                footerPosition - 10,
-                e.MarginBounds.Right,
-                footerPosition - 10);
-
-            // Page X
-            e.Graphics.DrawString($"Page {pageCounter}", footerFont, Brushes.Black,
-                e.MarginBounds.Right - 50, footerPosition - 5, rightAlign);
-
-            // Date => Format jj/MM/aaaa
-            e.Graphics.DrawString($"Date : {DateTime.Now:dd/MM/yyyy}", footerFont, Brushes.Black,
-                e.MarginBounds.Left + 10,
-                footerPosition - 5,
-                leftAlign);
-
-            // Pagination
-            if (recordIndex < transactions.Count)
-            {
-                e.HasMorePages = true;
-                pageCounter++;
-            }
-            else
-            {
-                e.HasMorePages = false;
-                pageCounter = 1;
-            }
+            e.Graphics.DrawString($"Page {pageCounter}", cf, Brushes.Black, e.MarginBounds.Right - 60, e.MarginBounds.Bottom - 20, C);
+            e.Graphics.DrawString($"Date : {DateTime.Now:dd/MM/yyyy}", cf, Brushes.Black, e.MarginBounds.Left + 10, e.MarginBounds.Bottom - 20, L);
+            e.HasMorePages = recordIndex < transactions.Count;
+            if (e.HasMorePages) pageCounter++; else pageCounter = 1;
         }
 
-        // ================== Méthodes utilitaires ==================
-
-        private string GetDynamicName()
-        {
-            return "8341855 Canada Inc";
-        }
-
-        /// <summary>
-        /// Additionne tous les CreditAmount de la liste triée
-        /// </summary>
-        private string CalculateTotalWithLogging()
-        {
-            decimal total = 0;
-            foreach (var t in transactions)
-            {
-                total += ParseDecimal(t.CreditAmount);
-            }
-            return FormatCurrency(total);
-        }
-
-        /// <summary> Convertit un string Montant en decimal (fr-CA) </summary>
-        private decimal ParseDecimal(string input)
-        {
-            if (string.IsNullOrEmpty(input)) return 0;
-            var ci = new CultureInfo("fr-CA");
-            if (decimal.TryParse(input, NumberStyles.Any, ci, out decimal val))
-                return val;
-            return 0;
-        }
-
-        /// <summary> Convertit un string Date ex. "2024-12-13 10:05:46" en DateTime? </summary>
-        private DateTime? ParseDateTime(string input)
-        {
-            if (string.IsNullOrEmpty(input)) return null;
-            var ci = CultureInfo.InvariantCulture;
-            if (DateTime.TryParse(input, ci, DateTimeStyles.None, out DateTime dt))
-                return dt;
-            return null;
-        }
-
-        /// <summary> Format un decimal => "144,00 $" (fr-CA) </summary>
-        private string FormatCurrency(decimal val)
-        {
-            var ci = new CultureInfo("fr-CA");
-            return val.ToString("N2", ci) + " $";
-        }
-
-        /// <summary> Format Date => "dd/MM/yyyy" </summary>
-        private string FormatDate(DateTime? dt)
-        {
-            if (dt.HasValue)
-                return dt.Value.ToString("dd/MM/yyyy");
-            return "";
-        }
-
-        // ====== Règle #Client : ClientReferenceNumber sinon ClientAccountID (numérique) ======
-        private static bool IsDigitsOnly(string s)
-        {
-            if (string.IsNullOrWhiteSpace(s)) return false;
-            foreach (char c in s.Trim())
-                if (!char.IsDigit(c)) return false;
-            return true;
-        }
-
-        private static string ClientRefOrAccountIdNumeric(Transaction tx)
-        {
-            var refNum = (tx.ClientReferenceNumber ?? "").Trim();
-            if (!string.IsNullOrEmpty(refNum)) return refNum;
-
-            var accountId = (tx.ClientAccountID ?? "").Trim();
-            if (IsDigitsOnly(accountId)) return accountId;
-
-            return "";
-        }
+        private static decimal ParseDecimal(string s) => decimal.TryParse(s, NumberStyles.Any, new CultureInfo("fr-CA"), out var d) ? d : 0;
+        private static DateTime? ParseDateTime(string s) => DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) ? dt : (DateTime?)null;
+        private static string FormatCurrency(decimal val) => val.ToString("N2", new CultureInfo("fr-CA")) + " $";
+        private static string FormatDate(DateTime? dt) => dt.HasValue ? dt.Value.ToString("dd/MM/yyyy") : "";
     }
 }
-
-
-
-
-
-
-
-
-

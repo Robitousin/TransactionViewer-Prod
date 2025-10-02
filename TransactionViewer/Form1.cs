@@ -15,14 +15,30 @@ using TransactionViewer.Services; // CsvExporter + ArchiveService
 
 namespace TransactionViewer
 {
+    /// <summary>
+    /// Formulaire principal de visualisation et traitement des transactions.
+    /// Gère trois flux :
+    ///  - Prélèvements (validation + impression portrait)
+    ///  - NSF / Échecs (validation + export CSV + impression paysage)
+    ///  - Exceptions (marquage comme vérifiées + impression)
+    /// Persiste les états via <see cref="TransactionRepository"/>.
+    /// </summary>
     public partial class Form1 : Form
     {
+        /// <summary>Dernière liste imprimée (tous groupes confondus).</summary>
         private List<Transaction> lastPrintedList = null;
+        /// <summary>Indique si la dernière impression concernait des transactions en échec (NSF).</summary>
         private bool lastPrintedIsFailed = false;
 
         // --- Lancement programme tiers (NSF) ---
+        /// <summary>Chemin absolu de l'exécutable externe appelé avant export NSF.</summary>
         private const string CHEMIN_CREDIT_EXE = @"C:\v100\Credit.exe";
 
+        /// <summary>
+        /// Lance l'exécutable externe défini dans <see cref="CHEMIN_CREDIT_EXE"/> et attend qu'il soit prêt (idle) ou expiration timeout.
+        /// </summary>
+        /// <param name="timeoutMs">Durée maximale d'attente (ms) de l'état input idle.</param>
+        /// <returns>true si le processus a été démarré correctement, sinon false.</returns>
         private bool LancerProgrammeCreditEtAttendre(int timeoutMs = 4000)
         {
             try

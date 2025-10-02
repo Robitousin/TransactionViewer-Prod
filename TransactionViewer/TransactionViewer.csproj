@@ -156,8 +156,6 @@
     <Content Include="Properties\logo.png" />
     <Content Include="Resources\logo.png" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="services\NewFolder1\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Form1.cs — version corrigée (async/await, sans BeginInvoke depuis l’UI)
+
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -7,6 +9,8 @@ using System.Drawing.Printing;
 using System.Diagnostics;    // Process.Start / WaitForInputIdle
 using System.IO;             // Path, Directory
 using System.Configuration;  // ConfigurationManager.AppSettings
+using System.Threading.Tasks;
+
 using TransactionViewer.DataAccess;
 using TransactionViewer.Helpers;
 using TransactionViewer.Models;
@@ -65,7 +69,6 @@ namespace TransactionViewer
                 if (proc == null) return false;
 
                 try { proc.WaitForInputIdle(timeoutMs); } catch { /* no-op */ }
-                Application.DoEvents();
                 return true;
             }
             catch (Exception ex)
@@ -86,23 +89,37 @@ namespace TransactionViewer
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // ... (ton code existant) ...
             dgvPrelevements.CellFormatting += Dgv_CellFormatting_ClientRefFallback;
             dgvNSF.CellFormatting += Dgv_CellFormatting_ClientRefFallback;
             dgvExceptions.CellFormatting += Dgv_CellFormatting_ClientRefFallback;
 
-            RafraichirOnglets(); // déjà présent chez toi:contentReference[oaicite:6]{index=6}
+            RafraichirOnglets();
         }
 
+        // =======================
+        // Import / Rafraîchir
+        // =======================
 
-        private void btnImporter_Click(object sender, EventArgs e)
+        private async void btnImporter_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
                 ofd.Filter = "Fichiers JSON|*.json";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    JsonImportService.ImportTransactionsFromFile(ofd.FileName);
+                    try
+                    {
+                        Cursor.Current = Cursors.WaitCursor;
+                        await Task.Run(() =>
+                        {
+                            JsonImportService.ImportTransactionsFromFile(ofd.FileName);
+                        });
+                    }
+                    finally
+                    {
+                        Cursor.Current = Cursors.Default;
+                    }
+
                     RafraichirOnglets();
                 }
             }
@@ -120,14 +137,10 @@ namespace TransactionViewer
 
             var col = dgv.Columns[e.ColumnIndex];
 
-            // On cible strictement la colonne "ClientReferenceNumber"
-            // (avec AutoGenerateColumns, DataPropertyName == nom de propriété du modèle)
-            var isClientRefCol =
-                (col.DataPropertyName ?? col.Name) == "ClientReferenceNumber";
-
+            // Cible strictement la colonne "ClientReferenceNumber" (AutoGenerateColumns → DataPropertyName = nom du modèle)
+            var isClientRefCol = (col.DataPropertyName ?? col.Name) == "ClientReferenceNumber";
             if (!isClientRefCol) return;
 
-            // Récupère la Transaction de la ligne
             var tx = dgv.Rows[e.RowIndex].DataBoundItem as Transaction;
             if (tx == null) return;
 
@@ -139,7 +152,11 @@ namespace TransactionViewer
             }
         }
 
-        private void btnImpressionEnregistrement_Click(object sender, EventArgs e)
+        // =======================
+        // Impression / Inscription
+        // =======================
+
+        private async void btnImpressionEnregistrement_Click(object sender, EventArgs e)
         {
             var currentTab = tabControl1.SelectedTab;
 
@@ -159,13 +176,9 @@ namespace TransactionViewer
                     TransactionRepository.UpdatePrelevementDone(tx.TransactionID);
 
                 RafraichirOnglets();
-                Application.DoEvents();
 
-                this.BeginInvoke((Action)(() =>
-                {
-                    // Prélèvements => portrait
-                    PrintByDate(selectedTx, isFailed: false);
-                }));
+                // Impression directe (UI)
+                PrintByDate(selectedTx, isFailed: false);
 
                 lastPrintedList = selectedTx;
                 lastPrintedIsFailed = false;
@@ -191,54 +204,62 @@ namespace TransactionViewer
                     TransactionRepository.UpdateNSFDone(tx.TransactionID);
 
                 RafraichirOnglets();
-                Application.DoEvents();
 
-                var creditOk = LancerProgrammeCreditEtAttendre(4000);
-                // if (!creditOk) return; // décommente si tu veux bloquer la suite
-
+                string archivedPath = null;
                 try
                 {
-                    // NSF root : AppSetting sinon profil courant (Documents\TransactionViewer\NSF)
-                    var nsfRoot = ConfigurationManager.AppSettings["NsfOutputRoot"];
-                    if (string.IsNullOrWhiteSpace(nsfRoot))
+                    Cursor.Current = Cursors.WaitCursor;
+
+                    // Tâches longues hors UI
+                    archivedPath = await Task.Run(() =>
                     {
-                        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                        nsfRoot = Path.Combine(docs, "TransactionViewer", "NSF");
-                    }
-                    Directory.CreateDirectory(nsfRoot);
+                        // 1) Lancement programme tiers (et attente Idle)
+                        LancerProgrammeCreditEtAttendre(4000);
 
-                    // Chemin EXPLICITE => plus jamais null
-                    var outFile = Path.Combine(nsfRoot, $"NSF_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+                        // 2) Export CSV + Archivage
+                        var nsfRoot = ConfigurationManager.AppSettings["NsfOutputRoot"];
+                        if (string.IsNullOrWhiteSpace(nsfRoot))
+                        {
+                            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                            nsfRoot = Path.Combine(docs, "TransactionViewer", "NSF");
+                        }
+                        Directory.CreateDirectory(nsfRoot);
 
-                    string csvPath = CsvExporter.ExportTransactionsToCsvLockedFormat(
-                        selectedTx,
-                        destinationFilePath: outFile,   // << IMPORTANT
-                        dateFormat: "yyyy-MM-dd"
-                    );
+                        var outFile = Path.Combine(nsfRoot, $"NSF_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
 
-                    // Archive root : AppSetting sinon profil courant (Documents\TransactionViewer\Archive)
-                    var archiveRoot = ConfigurationManager.AppSettings["ArchiveRoot"];
-                    if (string.IsNullOrWhiteSpace(archiveRoot))
-                    {
-                        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-                        archiveRoot = Path.Combine(docs, "TransactionViewer", "Archive");
-                    }
-                    Directory.CreateDirectory(archiveRoot);
+                        CsvExporter.ExportTransactionsToCsvLockedFormat(
+                            selectedTx,
+                            destinationFilePath: outFile,
+                            dateFormat: "yyyy-MM-dd"
+                        );
 
-                    string archivedPath = ArchiveService.MoveToNsfArchive(csvPath, archiveRoot);
-                    OuvrirExplorerSurFichier(archivedPath);
+                        var archiveRoot = ConfigurationManager.AppSettings["ArchiveRoot"];
+                        if (string.IsNullOrWhiteSpace(archiveRoot))
+                        {
+                            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                            archiveRoot = Path.Combine(docs, "TransactionViewer", "Archive");
+                        }
+                        Directory.CreateDirectory(archiveRoot);
+
+                        return ArchiveService.MoveToNsfArchive(outFile, archiveRoot);
+                    });
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show("Erreur export/archivage NSF : " + ex.Message,
                         "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-
-                this.BeginInvoke((Action)(() =>
+                finally
                 {
-                    // NSF => paysage
-                    PrintByDate(selectedTx, isFailed: true);
-                }));
+                    Cursor.Current = Cursors.Default;
+                }
+
+                // Ouvrir l’explorateur (UI)
+                if (!string.IsNullOrWhiteSpace(archivedPath))
+                    OuvrirExplorerSurFichier(archivedPath);
+
+                // Impression (UI)
+                PrintByDate(selectedTx, isFailed: true);
 
                 lastPrintedList = selectedTx;
                 lastPrintedIsFailed = true;
@@ -255,20 +276,30 @@ namespace TransactionViewer
                     return;
                 }
 
-                foreach (var tx in selectedTx)
+                try
                 {
-                    tx.IsVerifier = true;
-                    tx.IsException = false;
-                    TransactionRepository.InsertOrUpdateTransaction(tx);
+                    Cursor.Current = Cursors.WaitCursor;
+
+                    // Marquage potentiellement long → hors UI
+                    await Task.Run(() =>
+                    {
+                        foreach (var tx in selectedTx)
+                        {
+                            tx.IsVerifier = true;
+                            tx.IsException = false;
+                            TransactionRepository.InsertOrUpdateTransaction(tx);
+                        }
+                    });
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
                 }
 
                 RafraichirOnglets();
-                Application.DoEvents();
 
-                this.BeginInvoke((Action)(() =>
-                {
-                    PrintExceptions(selectedTx);
-                }));
+                // Impression (UI)
+                PrintExceptions(selectedTx);
             }
         }
 
@@ -341,6 +372,10 @@ namespace TransactionViewer
             PrintByDate(lastPrintedList, lastPrintedIsFailed);
         }
 
+        // =======================
+        // Rafraîchir / Aide
+        // =======================
+
         private void RafraichirOnglets()
         {
             var prel = TransactionRepository.GetPrelevements();
@@ -355,7 +390,6 @@ namespace TransactionViewer
             dgvExceptions.DataSource = exc;
             ApplyUnifiedLayout(dgvExceptions, "chkSelectExc");
         }
-
 
         private List<Transaction> GetCheckedTransactions(DataGridView dgv, string checkboxColumnName)
         {
@@ -378,6 +412,10 @@ namespace TransactionViewer
             }
             return list;
         }
+
+        // =======================
+        // Impression
+        // =======================
 
         private void PrintByDate(List<Transaction> txList, bool isFailed)
         {
@@ -402,14 +440,15 @@ namespace TransactionViewer
 
                 foreach (var group in grouped)
                 {
-                    PrintDocument pd = new PrintDocument { };
-                    pd.DefaultPageSettings.Landscape = true;
-
-                    var mgr = new PrintManagerFailed(group.ToList());
-                    pd.PrintPage += mgr.PrintDocument_PrintPage;
-
-                    using (PrintDialog diag = new PrintDialog { Document = pd })
+                    using (PrintDocument pd = new PrintDocument())
+                    using (PrintDialog diag = new PrintDialog())
                     {
+                        pd.DefaultPageSettings.Landscape = true;
+
+                        var mgr = new PrintManagerFailed(group.ToList());
+                        pd.PrintPage += mgr.PrintDocument_PrintPage;
+
+                        diag.Document = pd;
                         if (diag.ShowDialog() == DialogResult.OK) pd.Print();
                     }
                 }
@@ -429,14 +468,15 @@ namespace TransactionViewer
 
                 foreach (var group in grouped)
                 {
-                    PrintDocument pd = new PrintDocument { };
-                    pd.DefaultPageSettings.Landscape = false;
-
-                    var mgr = new PrintManager(group.ToList());
-                    pd.PrintPage += mgr.PrintDocument_PrintPage;
-
-                    using (PrintDialog diag = new PrintDialog { Document = pd })
+                    using (PrintDocument pd = new PrintDocument())
+                    using (PrintDialog diag = new PrintDialog())
                     {
+                        pd.DefaultPageSettings.Landscape = false;
+
+                        var mgr = new PrintManager(group.ToList());
+                        pd.PrintPage += mgr.PrintDocument_PrintPage;
+
+                        diag.Document = pd;
                         if (diag.ShowDialog() == DialogResult.OK) pd.Print();
                     }
                 }
@@ -447,17 +487,22 @@ namespace TransactionViewer
         {
             if (txList == null || txList.Count == 0) return;
 
-            PrintDocument pd = new PrintDocument();
-            pd.DefaultPageSettings.Landscape = true;
-
-            var mgr = new PrintManagerException(txList);
-            pd.PrintPage += mgr.PrintDocument_PrintPage;
-
-            using (PrintDialog diag = new PrintDialog { Document = pd })
+            using (PrintDocument pd = new PrintDocument())
+            using (PrintDialog diag = new PrintDialog())
             {
+                pd.DefaultPageSettings.Landscape = true;
+
+                var mgr = new PrintManagerException(txList);
+                pd.PrintPage += mgr.PrintDocument_PrintPage;
+
+                diag.Document = pd;
                 if (diag.ShowDialog() == DialogResult.OK) pd.Print();
             }
         }
+
+        // =======================
+        // Mise en forme grilles
+        // =======================
 
         private void chkSelectAllPrelev_CheckedChanged(object sender, EventArgs e)
         {
@@ -477,21 +522,22 @@ namespace TransactionViewer
             dgv.EndEdit();
             dgv.Refresh();
         }
+
         // Ordre unifié souhaité pour tous les onglets
         private static readonly string[] UnifiedOrder = {
-    "TransactionDateTime",
-    "TransactionID",
-    "TransactionType",
-    "ClientReferenceNumber",
-    "FullName",
-    "CreditAmount",
-    "LastModified",            // <-- AJOUT ICI
-    "TransactionStatus",
-    "TransactionFailureReason",
-    "TransactionErrorCode",
-    "Notes",
-    "TransactionFlag"
-};
+            "TransactionDateTime",
+            "TransactionID",
+            "TransactionType",
+            "ClientReferenceNumber",
+            "FullName",
+            "CreditAmount",
+            "LastModified",
+            "TransactionStatus",
+            "TransactionFailureReason",
+            "TransactionErrorCode",
+            "Notes",
+            "TransactionFlag"
+        };
 
         private static readonly System.Collections.Generic.Dictionary<string, string> UnifiedHeaders
             = new System.Collections.Generic.Dictionary<string, string>
@@ -510,7 +556,6 @@ namespace TransactionViewer
                 ["TransactionFlag"] = "Drapeau"
             };
 
-        // Mise en forme commune pour une grille et son nom de colonne checkbox
         private void ApplyUnifiedLayout(DataGridView dgv, string checkboxColumnName)
         {
             BaseGridTuning(dgv);
@@ -534,17 +579,15 @@ namespace TransactionViewer
                 startIndex = 1;
             }
 
-            // 3) Appliquer l'ordre demandé, immédiatement après (DisplayIndex)
+            // 3) Appliquer l'ordre demandé
             for (int i = 0; i < UnifiedOrder.Length; i++)
             {
                 string col = UnifiedOrder[i];
                 if (dgv.Columns.Contains(col))
-                {
                     dgv.Columns[col].DisplayIndex = startIndex + i;
-                }
             }
 
-            // 4) Masquer toutes les colonnes non listées (bruit)
+            // 4) Masquer toutes les colonnes non listées
             var allowed = new System.Collections.Generic.HashSet<string>(UnifiedOrder);
             if (!string.IsNullOrEmpty(checkboxColumnName))
                 allowed.Add(checkboxColumnName);
@@ -568,10 +611,9 @@ namespace TransactionViewer
 
         private void BaseGridTuning(DataGridView dgv)
         {
-            // On impose l’ordre, donc pas besoin de ré-ordonnancement manuel par l’utilisateur
             dgv.AllowUserToOrderColumns = false;
             dgv.AllowUserToResizeColumns = true;
-            dgv.AutoGenerateColumns = true; // on laisse générer depuis Transaction (DataSource = List<Transaction>)
+            dgv.AutoGenerateColumns = true; // génération depuis List<Transaction>
         }
 
         private void dgvPrelevements_CellContentClick(object sender, DataGridViewCellEventArgs e)
@@ -606,11 +648,7 @@ namespace TransactionViewer
                     var dir = Path.GetDirectoryName(fullPath);
                     if (!string.IsNullOrWhiteSpace(dir))
                     {
-                        var psi = new ProcessStartInfo
-                        {
-                            FileName = dir,
-                            UseShellExecute = true
-                        };
+                        var psi = new ProcessStartInfo { FileName = dir, UseShellExecute = true };
                         Process.Start(psi);
                     }
                 }
@@ -619,3 +657,4 @@ namespace TransactionViewer
         }
     }
 }
+

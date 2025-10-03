@@ -4,11 +4,14 @@ using System.Drawing;
 using System.Drawing.Printing;
 using System.Globalization;
 using System.Linq;
-using TransactionViewer;          // <— pour IPrintManager
 using TransactionViewer.Models;
 
 namespace TransactionViewer.Printing
 {
+    /// <summary>
+    /// Impression NSF (paysage) – avec cartouche 1ère page (Nom, Type, Total, Référence),
+    /// ligne d’en-tête sous les titres, colonnes normalisées et pied de page harmonisé.
+    /// </summary>
     public class PrintManagerFailed : IPrintManager
     {
         private readonly List<Transaction> transactions;
@@ -17,21 +20,19 @@ namespace TransactionViewer.Printing
 
         private readonly int[] columnWidths = { 90, 280, 90, 110, 110, 60, 220 };
         private readonly string[] headers = { "# Client", "Nom du Client", "Montant", "Date NSF", "Transmis Le", "Code", "NSF Raison" };
-        private readonly string logoPath = @"Resources\logo.png";
+
+        private readonly string logoPath = @"Resources\\logo.png";
 
         public PrintManagerFailed(List<Transaction> list)
         {
             // Tri montant ascendant
-            transactions = (list ?? new List<Transaction>())
-                .OrderBy(t => ParseDecimal(t.CreditAmount))
-                .ToList();
+            transactions = (list ?? new List<Transaction>()).OrderBy(t => ParseDecimal(t.CreditAmount)).ToList();
         }
 
         public void PrintDocument_PrintPage(object sender, PrintPageEventArgs e)
         {
             if (sender is PrintDocument doc) doc.DefaultPageSettings.Landscape = true;
 
-            // -------- Styles
             int lineHeight = 18;
             Font headerFont = new Font("Arial", 10, FontStyle.Bold);
             Font titleFont = new Font("Arial", 14, FontStyle.Bold);
@@ -42,13 +43,12 @@ namespace TransactionViewer.Printing
             StringFormat C = new StringFormat { Alignment = StringAlignment.Center };
             StringFormat R = new StringFormat { Alignment = StringAlignment.Far };
 
-            // -------- Colonnes
             int[] colPos = new int[columnWidths.Length];
             colPos[0] = 70;
             for (int i = 1; i < columnWidths.Length; i++)
                 colPos[i] = colPos[i - 1] + columnWidths[i - 1];
 
-            // -------- Titres
+            // Titres
             e.Graphics.DrawString("Rapport de Transactions", titleFont, Brushes.Black,
                 e.MarginBounds.Left + (e.MarginBounds.Width / 2), e.MarginBounds.Top - 70, C);
             e.Graphics.DrawString("NSF", titleFont, Brushes.Black,
@@ -58,8 +58,8 @@ namespace TransactionViewer.Printing
             int headerLineY = e.MarginBounds.Top - 10;
             e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, headerLineY, e.MarginBounds.Right, headerLineY);
 
-            // -------- Cartouche 1re page (Nom / Type / Total + Référence à droite)
-            int topMargin = 90; // base si pages suivantes
+            // Cartouche 1ère page
+            int topMargin = 90;
             if (recordIndex == 0)
             {
                 if (System.IO.File.Exists(logoPath))
@@ -70,19 +70,15 @@ namespace TransactionViewer.Printing
 
                 int dynTop = 120;
 
-                // Nom
                 e.Graphics.DrawString("Nom : 8341855 Canada Inc", contentFont, Brushes.Black, 30, dynTop, L);
                 dynTop += lineHeight + 5;
 
-                // Type
                 string type = transactions.Count > 0 ? (transactions[0].TransactionType ?? "") : "";
                 e.Graphics.DrawString("Type: " + type, contentFont, Brushes.Black, 30, dynTop, L);
                 dynTop += lineHeight + 5;
 
-                // Total
                 e.Graphics.DrawString("Total : " + CalculateTotal(), contentFont, Brushes.Black, 30, dynTop, L);
 
-                // Référence (à droite, haut) : LastModified
                 string refDate = "";
                 if (transactions.Count > 0)
                 {
@@ -95,7 +91,7 @@ namespace TransactionViewer.Printing
                 topMargin = dynTop + 40;
             }
 
-            // -------- En-têtes colonnes
+            // En-têtes colonnes
             for (int i = 0; i < headers.Length; i++)
             {
                 var fmt = (i == 2) ? R : ((i == 3 || i == 4) ? C : L);
@@ -104,12 +100,11 @@ namespace TransactionViewer.Printing
             }
             topMargin += lineHeight;
 
-            // -------- Lignes
+            // Lignes
             int itemsPerPage = Math.Max(1, (e.MarginBounds.Height - topMargin - 60) / lineHeight);
             while (recordIndex < transactions.Count && itemsPerPage > 0)
             {
                 var tx = transactions[recordIndex];
-
                 string[] row =
                 {
                     tx.ClientReferenceNumber ?? "",
@@ -120,7 +115,6 @@ namespace TransactionViewer.Printing
                     tx.TransactionErrorCode ?? "",
                     tx.TransactionFailureReason ?? ""
                 };
-
                 for (int i = 0; i < row.Length; i++)
                 {
                     var fmt = (i == 2) ? R : ((i == 3 || i == 4) ? C : L);
@@ -133,7 +127,7 @@ namespace TransactionViewer.Printing
                 itemsPerPage--;
             }
 
-            // -------- Pied de page (ligne + Date/ Page)
+            // Pied de page (ligne + Date/ Page)
             int footerTextHeight = 18;
             int footerPadding = 6;
             int footerTextY = e.MarginBounds.Bottom - footerTextHeight;
@@ -148,7 +142,6 @@ namespace TransactionViewer.Printing
             var rightFmt = new StringFormat { Alignment = StringAlignment.Far };
             e.Graphics.DrawString($"Page {pageCounter}", footerFont, Brushes.Black, rightRect, rightFmt);
 
-            // Pagination
             e.HasMorePages = recordIndex < transactions.Count;
             if (e.HasMorePages) pageCounter++; else pageCounter = 1;
         }
@@ -157,7 +150,7 @@ namespace TransactionViewer.Printing
             => decimal.TryParse(s, NumberStyles.Any, new CultureInfo("fr-CA"), out var d) ? d : 0m;
 
         private static DateTime? ParseDateTime(string s)
-            => DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) ? (DateTime?)dt : null;
+            => DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dt) ? (DateTime?)dt : null;
 
         private static string FormatCurrency(decimal val)
             => val.ToString("N2", new CultureInfo("fr-CA")) + " $";
@@ -168,9 +161,9 @@ namespace TransactionViewer.Printing
         private string CalculateTotal()
         {
             decimal total = 0m;
-            foreach (var t in transactions) total += ParseDecimal(t.CreditAmount);
+            foreach (var t in transactions)
+                total += ParseDecimal(t.CreditAmount);
             return FormatCurrency(total);
         }
     }
 }
-

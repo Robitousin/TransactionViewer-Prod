@@ -88,9 +88,9 @@
             this.dgvPrelevements.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvPrelevements.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.chkSelectPrelev});
-            this.dgvPrelevements.Location = new System.Drawing.Point(3, 29);
+            this.dgvPrelevements.Location = new System.Drawing.Point(6, 29);
             this.dgvPrelevements.Name = "dgvPrelevements";
-            this.dgvPrelevements.Size = new System.Drawing.Size(1141, 524);
+            this.dgvPrelevements.Size = new System.Drawing.Size(1138, 524);
             this.dgvPrelevements.TabIndex = 0;
             this.dgvPrelevements.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvPrelevements_CellContentClick);
             // 
@@ -107,7 +107,7 @@
             this.tabNSF.Location = new System.Drawing.Point(4, 22);
             this.tabNSF.Name = "tabNSF";
             this.tabNSF.Padding = new System.Windows.Forms.Padding(3);
-            this.tabNSF.Size = new System.Drawing.Size(1295, 559);
+            this.tabNSF.Size = new System.Drawing.Size(1147, 559);
             this.tabNSF.TabIndex = 1;
             this.tabNSF.Text = "NSF";
             this.tabNSF.UseVisualStyleBackColor = true;
@@ -146,7 +146,7 @@
             this.tabExceptions.Location = new System.Drawing.Point(4, 22);
             this.tabExceptions.Name = "tabExceptions";
             this.tabExceptions.Padding = new System.Windows.Forms.Padding(3);
-            this.tabExceptions.Size = new System.Drawing.Size(1295, 559);
+            this.tabExceptions.Size = new System.Drawing.Size(1147, 559);
             this.tabExceptions.TabIndex = 2;
             this.tabExceptions.Text = "Exceptions";
             this.tabExceptions.UseVisualStyleBackColor = true;

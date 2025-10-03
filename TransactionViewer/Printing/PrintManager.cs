@@ -12,6 +12,7 @@ namespace TransactionViewer.Printing
         private readonly List<Transaction> transactions;
         private int recordIndex = 0;
         private int pageCounter = 1;
+        private int totalPages = 0; // <- pour "Page X de Y"
 
         private readonly int[] columnWidths = { 90, 280, 90, 110, 120 };
         private readonly string[] headers = { "# Client", "Nom du client", "Montant", "Transmis Le", "TransactionID" };
@@ -52,7 +53,8 @@ namespace TransactionViewer.Printing
                 e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, headerLineY, e.MarginBounds.Right, headerLineY);
 
                 // Cartouche 1re page
-                int topMargin = 100;
+                int baseTopNoCart = 100; // base des pages suivantes (sans cartouche)
+                int topMargin = baseTopNoCart;
                 if (recordIndex == 0)
                 {
                     if (System.IO.File.Exists(logoPath))
@@ -67,6 +69,11 @@ namespace TransactionViewer.Printing
 
                     string type = transactions.Count > 0 ? (transactions[0].TransactionType ?? "") : "";
                     e.Graphics.DrawString("Type: " + type, contentFont, Brushes.Black, 30, dynTop, L);
+                    dynTop += lineHeight + 5;
+
+                    // Nouveau : Nombre de transactions
+                    string nb = transactions.Count.ToString("N0", new CultureInfo("fr-CA"));
+                    e.Graphics.DrawString("Nombre de transactions : " + nb, contentFont, Brushes.Black, 30, dynTop, L);
                     dynTop += lineHeight + 5;
 
                     e.Graphics.DrawString("Total: " + CalculateTotal(), contentFont, Brushes.Black, 30, dynTop, L);
@@ -91,6 +98,17 @@ namespace TransactionViewer.Printing
                         new RectangleF(colPos[i], topMargin, columnWidths[i], lineHeight), fmt);
                 }
                 topMargin += lineHeight;
+
+                // Calcul du total de pages (une seule fois)
+                if (totalPages == 0)
+                {
+                    int itemsFirst = Math.Max(1, (e.MarginBounds.Height - (topMargin + 60)) / lineHeight);
+                    int remaining = Math.Max(0, transactions.Count - itemsFirst);
+                    int topNext = baseTopNoCart + lineHeight; // pages suivantes : base + ligne d'en-têtes
+                    int itemsNext = Math.Max(1, (e.MarginBounds.Height - (topNext + 60)) / lineHeight);
+                    int extraPages = remaining > 0 ? (int)Math.Ceiling(remaining / (double)itemsNext) : 0;
+                    totalPages = 1 + extraPages;
+                }
 
                 // Lignes
                 int itemsPerPage = Math.Max(1, (e.MarginBounds.Height - topMargin - 60) / lineHeight);
@@ -125,9 +143,9 @@ namespace TransactionViewer.Printing
                 e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, footerLineY, e.MarginBounds.Right, footerLineY);
                 e.Graphics.DrawString($"Date : {DateTime.Now:dd/MM/yyyy}", footerFont, Brushes.Black, e.MarginBounds.Left + 10, footerTextY);
 
-                var rightRect = new RectangleF(e.MarginBounds.Right - 80, footerTextY, 80, footerTextHeight);
+                var rightRect = new RectangleF(e.MarginBounds.Right - 140, footerTextY, 140, footerTextHeight);
                 var rightFmt = new StringFormat { Alignment = StringAlignment.Far };
-                e.Graphics.DrawString($"Page {pageCounter}", footerFont, Brushes.Black, rightRect, rightFmt);
+                e.Graphics.DrawString($"Page {pageCounter} de {Math.Max(totalPages, pageCounter)}", footerFont, Brushes.Black, rightRect, rightFmt);
 
                 e.HasMorePages = recordIndex < transactions.Count;
                 if (e.HasMorePages) pageCounter++; else pageCounter = 1;

@@ -9,7 +9,7 @@ using TransactionViewer.Models;
 namespace TransactionViewer.Printing
 {
     /// <summary>
-    /// Impression NSF (paysage) – avec cartouche 1ère page (Nom, Type, Total, Référence),
+    /// Impression NSF (paysage) – avec cartouche 1ère page (Nom, Type, Nombre de transactions, Total, Référence),
     /// ligne d’en-tête sous les titres, colonnes normalisées et pied de page harmonisé.
     /// </summary>
     public class PrintManagerFailed : IPrintManager
@@ -17,6 +17,7 @@ namespace TransactionViewer.Printing
         private readonly List<Transaction> transactions;
         private int recordIndex = 0;
         private int pageCounter = 1;
+        private int totalPages = 0;
 
         private readonly int[] columnWidths = { 90, 280, 90, 110, 110, 60, 220 };
         private readonly string[] headers = { "# Client", "Nom du Client", "Montant", "Date NSF", "Transmis Le", "Code", "NSF Raison" };
@@ -58,8 +59,9 @@ namespace TransactionViewer.Printing
                 int headerLineY = e.MarginBounds.Top - 10;
                 e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, headerLineY, e.MarginBounds.Right, headerLineY);
 
-                // Cartouche 1ère page
-                int topMargin = 90;
+                // Cartouche 1re page
+                int baseTopNoCart = 90;
+                int topMargin = baseTopNoCart;
                 if (recordIndex == 0)
                 {
                     if (System.IO.File.Exists(logoPath))
@@ -75,6 +77,10 @@ namespace TransactionViewer.Printing
 
                     string type = transactions.Count > 0 ? (transactions[0].TransactionType ?? "") : "";
                     e.Graphics.DrawString("Type: " + type, contentFont, Brushes.Black, 30, dynTop, L);
+                    dynTop += lineHeight + 5;
+
+                    string nb = transactions.Count.ToString("N0", new CultureInfo("fr-CA"));
+                    e.Graphics.DrawString("Nombre de transactions : " + nb, contentFont, Brushes.Black, 30, dynTop, L);
                     dynTop += lineHeight + 5;
 
                     e.Graphics.DrawString("Total : " + CalculateTotal(), contentFont, Brushes.Black, 30, dynTop, L);
@@ -99,6 +105,17 @@ namespace TransactionViewer.Printing
                         new RectangleF(colPos[i], topMargin, columnWidths[i], lineHeight), fmt);
                 }
                 topMargin += lineHeight;
+
+                // Total pages (une seule fois)
+                if (totalPages == 0)
+                {
+                    int itemsFirst = Math.Max(1, (e.MarginBounds.Height - (topMargin + 60)) / lineHeight);
+                    int remaining = Math.Max(0, transactions.Count - itemsFirst);
+                    int topNext = baseTopNoCart + lineHeight;
+                    int itemsNext = Math.Max(1, (e.MarginBounds.Height - (topNext + 60)) / lineHeight);
+                    int extraPages = remaining > 0 ? (int)Math.Ceiling(remaining / (double)itemsNext) : 0;
+                    totalPages = 1 + extraPages;
+                }
 
                 // Lignes
                 int itemsPerPage = Math.Max(1, (e.MarginBounds.Height - topMargin - 60) / lineHeight);
@@ -138,9 +155,9 @@ namespace TransactionViewer.Printing
                 e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, footerLineY, e.MarginBounds.Right, footerLineY);
                 e.Graphics.DrawString($"Date : {DateTime.Now:dd/MM/yyyy}", footerFont, Brushes.Black, e.MarginBounds.Left + 10, footerTextY);
 
-                var rightRect = new RectangleF(e.MarginBounds.Right - 80, footerTextY, 80, footerTextHeight);
+                var rightRect = new RectangleF(e.MarginBounds.Right - 140, footerTextY, 140, footerTextHeight);
                 var rightFmt = new StringFormat { Alignment = StringAlignment.Far };
-                e.Graphics.DrawString($"Page {pageCounter}", footerFont, Brushes.Black, rightRect, rightFmt);
+                e.Graphics.DrawString($"Page {pageCounter} de {Math.Max(totalPages, pageCounter)}", footerFont, Brushes.Black, rightRect, rightFmt);
 
                 e.HasMorePages = recordIndex < transactions.Count;
                 if (e.HasMorePages) pageCounter++; else pageCounter = 1;

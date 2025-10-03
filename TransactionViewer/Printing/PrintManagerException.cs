@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Globalization;
-using System.Windows.Forms; // pour MessageBox (auto-check)
 using TransactionViewer.Models;
 
 namespace TransactionViewer.Printing
@@ -13,24 +12,12 @@ namespace TransactionViewer.Printing
         private readonly List<Transaction> transactions;
         private int recordIndex = 0;
         private int pageCounter = 1;
+        private int totalPages = 0;
 
         private readonly int[] columnWidths = { 90, 280, 90, 110, 110, 60, 220 };
         private readonly string[] headers = {
             "# Client", "Nom du Client", "Montant", "Transmis Le", "Date Exception", "Code", "Raison"
         };
-
-        private static readonly string[] ExpectedHeaders = {
-            "# Client", "Nom du Client", "Montant", "Transmis Le", "Date Exception", "Code", "Raison"
-        };
-
-        private static bool ValidateHeaders(string[] actual)
-        {
-            if (actual == null || actual.Length != ExpectedHeaders.Length) return false;
-            for (int i = 0; i < ExpectedHeaders.Length; i++)
-                if (!string.Equals(actual[i], ExpectedHeaders[i], StringComparison.Ordinal))
-                    return false;
-            return true;
-        }
 
         private readonly string logoPath = @"Resources\logo.png";
         private static Image cachedLogo;
@@ -68,23 +55,8 @@ namespace TransactionViewer.Printing
                 int headerLineY = e.MarginBounds.Top - 10;
                 e.Graphics.DrawLine(Pens.Black, e.MarginBounds.Left, headerLineY, e.MarginBounds.Right, headerLineY);
 
-                // Auto-check du contrat (1ère page)
-                if (recordIndex == 0 && !ValidateHeaders(headers))
-                {
-                    try
-                    {
-                        MessageBox.Show(
-                            "Incohérence du layout Exceptions : les en-têtes ne correspondent pas au contrat.\n" +
-                            "Vérifiez docs/PrintLayouts.md (section Exceptions).",
-                            "Mise en page – Exceptions",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Warning
-                        );
-                    }
-                    catch { }
-                }
-
-                int topMargin = 90;
+                int baseTopNoCart = 90;
+                int topMargin = baseTopNoCart;
                 if (recordIndex == 0)
                 {
                     if (cachedLogo == null && System.IO.File.Exists(logoPath))
@@ -106,6 +78,10 @@ namespace TransactionViewer.Printing
                     e.Graphics.DrawString("Type: " + type, contentFont, Brushes.Black, 30, dynTop, L);
                     dynTop += lineHeight + 5;
 
+                    string nb = transactions.Count.ToString("N0", new CultureInfo("fr-CA"));
+                    e.Graphics.DrawString("Nombre de transactions : " + nb, contentFont, Brushes.Black, 30, dynTop, L);
+                    dynTop += lineHeight + 5;
+
                     e.Graphics.DrawString("Total : " + CalculateTotal(), contentFont, Brushes.Black, 30, dynTop, L);
 
                     string refDate = string.Empty;
@@ -120,7 +96,6 @@ namespace TransactionViewer.Printing
                     topMargin = dynTop + 40;
                 }
 
-                // En-têtes
                 for (int i = 0; i < headers.Length; i++)
                 {
                     StringFormat fmt = (i == 2) ? R : (i == 3 || i == 4 ? C : L);
@@ -129,7 +104,16 @@ namespace TransactionViewer.Printing
                 }
                 topMargin += lineHeight;
 
-                // Lignes
+                if (totalPages == 0)
+                {
+                    int itemsFirst = Math.Max(1, (e.MarginBounds.Height - (topMargin + 60)) / lineHeight);
+                    int remaining = Math.Max(0, transactions.Count - itemsFirst);
+                    int topNext = baseTopNoCart + lineHeight;
+                    int itemsNext = Math.Max(1, (e.MarginBounds.Height - (topNext + 60)) / lineHeight);
+                    int extraPages = remaining > 0 ? (int)Math.Ceiling(remaining / (double)itemsNext) : 0;
+                    totalPages = 1 + extraPages;
+                }
+
                 int itemsPerPage = Math.Max(1, (e.MarginBounds.Height - topMargin - 60) / lineHeight);
                 while (recordIndex < transactions.Count && itemsPerPage > 0)
                 {
@@ -158,7 +142,6 @@ namespace TransactionViewer.Printing
                     itemsPerPage--;
                 }
 
-                // Pied
                 int footerTextHeight = 18;
                 int footerPadding = 6;
                 int footerTextY = e.MarginBounds.Bottom - footerTextHeight;
@@ -168,9 +151,9 @@ namespace TransactionViewer.Printing
                 e.Graphics.DrawString("Date : " + DateTime.Now.ToString("dd/MM/yyyy"), footerFont, Brushes.Black,
                     e.MarginBounds.Left + 10, footerTextY);
 
-                RectangleF rightRect = new RectangleF(e.MarginBounds.Right - 80, footerTextY, 80, footerTextHeight);
+                RectangleF rightRect = new RectangleF(e.MarginBounds.Right - 140, footerTextY, 140, footerTextHeight);
                 StringFormat rightFmt = new StringFormat { Alignment = StringAlignment.Far };
-                e.Graphics.DrawString("Page " + pageCounter, footerFont, Brushes.Black, rightRect, rightFmt);
+                e.Graphics.DrawString($"Page {pageCounter} de {Math.Max(totalPages, pageCounter)}", footerFont, Brushes.Black, rightRect, rightFmt);
 
                 e.HasMorePages = recordIndex < transactions.Count;
                 if (e.HasMorePages) pageCounter++; else pageCounter = 1;
@@ -223,5 +206,3 @@ namespace TransactionViewer.Printing
         }
     }
 }
-
-

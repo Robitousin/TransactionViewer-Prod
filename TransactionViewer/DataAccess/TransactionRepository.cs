@@ -102,6 +102,79 @@ namespace TransactionViewer.DataAccess
             return list;
         }
 
+        public static List<Transaction> SearchTransactions(
+    string keyword, DateTime? fromDate, DateTime? toDate, string status,
+    bool onlyFailedTab, bool onlyPrelevementTab, bool onlyExceptionTab,
+    int skip = 0, int take = 200)
+        {
+            var list = new List<Transaction>();
+            using (var conn = new System.Data.SqlClient.SqlConnection(DbHelper.ConnString))
+            {
+                conn.Open();
+                var where = new List<string>();
+                var cmd = new System.Data.SqlClient.SqlCommand();
+                cmd.Connection = conn;
+
+                // Vision par onglet
+                if (onlyPrelevementTab)
+                    where.Add("IsPrelevementDone = 0 AND IsException = 0 AND TransactionStatus <> 'cancelled'");
+                if (onlyFailedTab)
+                    where.Add("TransactionStatus = 'failed' AND IsNSFDone = 0 AND IsException = 0");
+                if (onlyExceptionTab)
+                    where.Add("(IsException = 1 OR TransactionStatus = 'cancelled')");
+
+                // Filtre texte
+                if (!string.IsNullOrWhiteSpace(keyword))
+                {
+                    where.Add(@"(
+                ClientReferenceNumber LIKE @kw OR
+                FullName LIKE @kw OR
+                TransactionID LIKE @kw OR
+                TransactionFailureReason LIKE @kw OR
+                Notes LIKE @kw
+            )");
+                    cmd.Parameters.AddWithValue("@kw", "%" + keyword + "%");
+                }
+
+                // Filtre statut
+                if (!string.IsNullOrWhiteSpace(status))
+                {
+                    where.Add("TransactionStatus = @st");
+                    cmd.Parameters.AddWithValue("@st", status);
+                }
+
+                // Filtre dates
+                if (fromDate.HasValue)
+                {
+                    where.Add("(TransactionDateTime >= @d1 OR LastModified >= @d1)");
+                    cmd.Parameters.AddWithValue("@d1", fromDate.Value.Date);
+                }
+                if (toDate.HasValue)
+                {
+                    where.Add("(TransactionDateTime < @d2 OR LastModified < @d2)");
+                    cmd.Parameters.AddWithValue("@d2", toDate.Value.Date.AddDays(1));
+                }
+
+                string whereSql = where.Count > 0 ? "WHERE " + string.Join(" AND ", where) : "";
+
+                cmd.CommandText = $@"
+            SELECT * FROM Transactions
+            {whereSql}
+            ORDER BY LastModified DESC
+            OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY;
+        ";
+
+                cmd.Parameters.AddWithValue("@skip", skip);
+                cmd.Parameters.AddWithValue("@take", take);
+
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                        list.Add(MapToTransaction(rdr));
+                }
+            }
+            return list;
+        }
 
         // ==========================
         // = Mise à jour de statut =

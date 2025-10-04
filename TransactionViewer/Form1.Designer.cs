@@ -52,10 +52,10 @@
             this.tabControl1.Controls.Add(this.tabPrelevements);
             this.tabControl1.Controls.Add(this.tabNSF);
             this.tabControl1.Controls.Add(this.tabExceptions);
-            this.tabControl1.Location = new System.Drawing.Point(12, 41);
+            this.tabControl1.Size = new System.Drawing.Size(1155, 526); // ajuste si besoin
             this.tabControl1.Name = "tabControl1";
             this.tabControl1.SelectedIndex = 0;
-            this.tabControl1.Size = new System.Drawing.Size(1155, 585);
+            this.tabControl1.Size = new System.Drawing.Size(1155, 574);
             this.tabControl1.TabIndex = 0;
             // 
             // tabPrelevements
@@ -65,7 +65,7 @@
             this.tabPrelevements.Location = new System.Drawing.Point(4, 22);
             this.tabPrelevements.Name = "tabPrelevements";
             this.tabPrelevements.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPrelevements.Size = new System.Drawing.Size(1147, 559);
+            this.tabPrelevements.Size = new System.Drawing.Size(1147, 548);
             this.tabPrelevements.TabIndex = 0;
             this.tabPrelevements.Text = "Prélèvements";
             this.tabPrelevements.UseVisualStyleBackColor = true;
@@ -107,7 +107,7 @@
             this.tabNSF.Location = new System.Drawing.Point(4, 22);
             this.tabNSF.Name = "tabNSF";
             this.tabNSF.Padding = new System.Windows.Forms.Padding(3);
-            this.tabNSF.Size = new System.Drawing.Size(1147, 559);
+            this.tabNSF.Size = new System.Drawing.Size(1147, 509);
             this.tabNSF.TabIndex = 1;
             this.tabNSF.Text = "NSF";
             this.tabNSF.UseVisualStyleBackColor = true;
@@ -146,7 +146,7 @@
             this.tabExceptions.Location = new System.Drawing.Point(4, 22);
             this.tabExceptions.Name = "tabExceptions";
             this.tabExceptions.Padding = new System.Windows.Forms.Padding(3);
-            this.tabExceptions.Size = new System.Drawing.Size(1147, 559);
+            this.tabExceptions.Size = new System.Drawing.Size(1147, 509);
             this.tabExceptions.TabIndex = 2;
             this.tabExceptions.Text = "Exceptions";
             this.tabExceptions.UseVisualStyleBackColor = true;
@@ -249,7 +249,110 @@
             this.tabExceptions.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvExceptions)).EndInit();
             this.ResumeLayout(false);
+            // ====== grpRecherche et contrôles ======
+            this.grpRecherche = new System.Windows.Forms.GroupBox();
+            this.txtRecherche = new System.Windows.Forms.TextBox();
+            this.dtDu = new System.Windows.Forms.DateTimePicker();
+            this.dtAu = new System.Windows.Forms.DateTimePicker();
+            this.cboStatut = new System.Windows.Forms.ComboBox();
+            this.btnRecherche = new System.Windows.Forms.Button();
+            this.lblRecherche = new System.Windows.Forms.Label();
+            this.lblDu = new System.Windows.Forms.Label();
+            this.lblAu = new System.Windows.Forms.Label();
+            this.lblStatut = new System.Windows.Forms.Label();
 
+            // grpRecherche
+            this.grpRecherche.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+                                    | System.Windows.Forms.AnchorStyles.Right)));
+            this.grpRecherche.Location = new System.Drawing.Point(12, 41);
+            this.grpRecherche.Name = "grpRecherche";
+            this.grpRecherche.Size = new System.Drawing.Size(1155, 52);
+            this.grpRecherche.TabIndex = 100;
+            this.grpRecherche.TabStop = false;
+            this.grpRecherche.Text = "Recherche";
+
+            // libellés
+            this.lblRecherche.AutoSize = true;
+            this.lblRecherche.Location = new System.Drawing.Point(10, 24);
+            this.lblRecherche.Name = "lblRecherche";
+            this.lblRecherche.Size = new System.Drawing.Size(61, 13);
+            this.lblRecherche.TabIndex = 0;
+            this.lblRecherche.Text = "Rechercher";
+
+            this.lblDu.AutoSize = true;
+            this.lblDu.Location = new System.Drawing.Point(350, 24);
+            this.lblDu.Name = "lblDu";
+            this.lblDu.Size = new System.Drawing.Size(22, 13);
+            this.lblDu.TabIndex = 0;
+            this.lblDu.Text = "Du";
+
+            this.lblAu.AutoSize = true;
+            this.lblAu.Location = new System.Drawing.Point(510, 24);
+            this.lblAu.Name = "lblAu";
+            this.lblAu.Size = new System.Drawing.Size(21, 13);
+            this.lblAu.TabIndex = 0;
+            this.lblAu.Text = "Au";
+
+            this.lblStatut.AutoSize = true;
+            this.lblStatut.Location = new System.Drawing.Point(670, 24);
+            this.lblStatut.Name = "lblStatut";
+            this.lblStatut.Size = new System.Drawing.Size(35, 13);
+            this.lblStatut.TabIndex = 0;
+            this.lblStatut.Text = "Statut";
+
+            // txtRecherche
+            this.txtRecherche.Location = new System.Drawing.Point(80, 20);
+            this.txtRecherche.Name = "txtRecherche";
+            this.txtRecherche.Size = new System.Drawing.Size(250, 20);
+            this.txtRecherche.TabIndex = 1;
+
+            // dtDu
+            this.dtDu.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+            this.dtDu.Location = new System.Drawing.Point(375, 20);
+            this.dtDu.Name = "dtDu";
+            this.dtDu.Size = new System.Drawing.Size(120, 20);
+            this.dtDu.TabIndex = 2;
+
+            // dtAu
+            this.dtAu.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+            this.dtAu.Location = new System.Drawing.Point(535, 20);
+            this.dtAu.Name = "dtAu";
+            this.dtAu.Size = new System.Drawing.Size(120, 20);
+            this.dtAu.TabIndex = 3;
+
+            // cboStatut
+            this.cboStatut.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cboStatut.Location = new System.Drawing.Point(710, 20);
+            this.cboStatut.Name = "cboStatut";
+            this.cboStatut.Size = new System.Drawing.Size(130, 21);
+            this.cboStatut.TabIndex = 4;
+            this.cboStatut.Items.AddRange(new object[] { "", "in progress", "failed", "cancelled" });
+
+            // btnRecherche
+            this.btnRecherche.Location = new System.Drawing.Point(860, 19);
+            this.btnRecherche.Name = "btnRecherche";
+            this.btnRecherche.Size = new System.Drawing.Size(90, 23);
+            this.btnRecherche.TabIndex = 5;
+            this.btnRecherche.Text = "Rechercher";
+            this.btnRecherche.UseVisualStyleBackColor = true;
+            this.btnRecherche.Click += new System.EventHandler(this.btnRecherche_Click);
+
+            // Ajouter les enfants au GroupBox
+            this.grpRecherche.Controls.Add(this.lblRecherche);
+            this.grpRecherche.Controls.Add(this.lblDu);
+            this.grpRecherche.Controls.Add(this.lblAu);
+            this.grpRecherche.Controls.Add(this.lblStatut);
+            this.grpRecherche.Controls.Add(this.txtRecherche);
+            this.grpRecherche.Controls.Add(this.dtDu);
+            this.grpRecherche.Controls.Add(this.dtAu);
+            this.grpRecherche.Controls.Add(this.cboStatut);
+            this.grpRecherche.Controls.Add(this.btnRecherche);
+
+            // Ajouter le GroupBox au Form
+            this.Controls.Add(this.grpRecherche);
+
+            // déplacer tabControl plus bas
+            this.tabControl1.Location = new System.Drawing.Point(12, 100);
         }
 
         #endregion
@@ -272,6 +375,17 @@
         private System.Windows.Forms.CheckBox chkSelectAllExcept;
         private System.Windows.Forms.DataGridView dgvExceptions;
         private System.Windows.Forms.DataGridViewCheckBoxColumn chkSelectExc;
+        private System.Windows.Forms.GroupBox grpRecherche;
+        private System.Windows.Forms.TextBox txtRecherche;
+        private System.Windows.Forms.DateTimePicker dtDu;
+        private System.Windows.Forms.DateTimePicker dtAu;
+        private System.Windows.Forms.ComboBox cboStatut;
+        private System.Windows.Forms.Button btnRecherche;
+        private System.Windows.Forms.Label lblRecherche;
+        private System.Windows.Forms.Label lblDu;
+        private System.Windows.Forms.Label lblAu;
+        private System.Windows.Forms.Label lblStatut;
+
     }
 }
 
